@@ -36,12 +36,13 @@ Cada `git push` na `main` dispara deploy automático.
 
 ## 3. Secrets das Edge Functions (Supabase)
 
-As ações de escrita rodam em Edge Functions do projeto `kpimalwnswxalwbidkog`
-(já deployadas): **`create-task-sc`** e **`movidesk-comment`**.
+As funções rodam no projeto `kpimalwnswxalwbidkog` (já deployadas):
+**`create-task-sc`**, **`movidesk-comment`** e **`movidesk-ticket`**.
 
 - **Criar Task SC** já funciona: reusa os secrets de Tasks SC (`TASKS_USERNAME`,
   `TASKS_PASSWORD`) que as demais functions do ecossistema já usam.
-- **Comentar no Movidesk** precisa de **um secret novo**:
+- **Histórico de mensagens** (`movidesk-ticket`) e **Comentar no Movidesk**
+  (`movidesk-comment`) precisam do secret **`MOVIDESK_TOKEN`**:
 
 ```bash
 # via Supabase CLI (ou pelo painel: Project → Edge Functions → Secrets)
@@ -53,8 +54,8 @@ supabase secrets set MOVIDESK_RESOLVED_JUSTIFICATION="Resolvido pela consultoria
 ```
 
 O `MOVIDESK_TOKEN` está no seu `conf/.env` local (do sdhub). **Nunca** commite esse
-valor. Sem ele, o botão "Comentar no Movidesk" retorna erro claro (503) e o resto do
-painel continua funcionando.
+valor. Sem ele, o **histórico de mensagens** não carrega e o botão "Comentar no
+Movidesk" retorna erro claro (503) — o kanban e o Criar Task SC continuam funcionando.
 
 ## 4. Acesso / login
 

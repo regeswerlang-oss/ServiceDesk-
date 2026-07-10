@@ -204,6 +204,15 @@
   async function createTaskSc(payload)       { return await callFn("create-task-sc", payload || {}); }
   // Comenta (ação pública) em um ticket Movidesk; opcional marcar como Resolvido. Ver movidesk-comment.
   async function movideskComment(payload)    { return await callFn("movidesk-comment", payload || {}); }
+  // Puxa o ticket Movidesk COMPLETO (com actions/histórico). Ver Edge Function movidesk-ticket.
+  async function movideskTicket(ticketId)    { return await callFn("movidesk-ticket", { ticket_id: String(ticketId) }); }
+  // Seed de clientes (código Tasks SC ↔ nome) para o dropdown de criação de Task.
+  async function seedClients() {
+    await requireSession();
+    const r = await sb.from("movidesk_seed_clients").select("tasks_customer_code,tasks_customer_name").order("tasks_customer_name");
+    if (r.error) throw r.error;
+    return (r.data || []).map(function (x) { return { code: x.tasks_customer_code, name: x.tasks_customer_name }; });
+  }
 
   // ---------- emails (≈ Dados/{chave}_emails.json) ----------
   async function getEmails(code) {
@@ -297,6 +306,7 @@
     searchEmails: searchEmails, getEmailById: getEmailById, getDecisoesMap: getDecisoesMap,
     getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
+    movideskTicket: movideskTicket, seedClients: seedClients,
     _config: { URL: SUPA_URL, ANON: SUPA_ANON, FN: FN_BASE },
   };
 })();

@@ -33,11 +33,22 @@ substitui o app Streamlit — é uma camada de visibilidade + ações rápidas.
 - **Comentar no Movidesk** (`movidesk-comment`): PATCH ação pública, opcional
   marcar como Resolvido. Confirmação em 2 passos.
 
+**Histórico de mensagens (timeline)**: ao abrir um ticket, o painel busca o ticket
+completo **ao vivo** no Movidesk (Edge Function `movidesk-ticket`) e monta a timeline
+de ações (tipo pública/interna, origem, autor, "você", ver mensagem completa, e
+"↩︎ usar no comentário"). Requer o secret `MOVIDESK_TOKEN`.
+
+**Classificação (IA)**: botão "Classificar agora" chama a função `classify` e sugere
+a categoria Tasks SC (Melhoria/Projeto/Sustentação).
+
+**Dropdown de cliente**: o código Tasks SC no Criar Task vem da tabela
+`totvs.movidesk_seed_clients` (seed do `seed_clients.csv`), com sugestão automática
+por nome da empresa. Dá para digitar um código livre também.
+
 ## Limites da v1
 
-- O `movidesk_tickets` guarda um **resumo** do ticket (sem o array de ações / sem
-  classificação IA). Por isso o drawer não traz a timeline de ações nem o bloco IA
-  do Streamlit. Trazer isso exige o sync do sdhub empurrar `actions`/`classifications`
-  para o Supabase (evolução futura).
-- Dados dependem do sync que popula `movidesk_tickets` (hoje manual). Sem sync novo,
-  o board reflete o último snapshot gravado.
+- O kanban lê o **resumo** de `movidesk_tickets` (status, empresa, datas, nº de ações,
+  vínculo com Task SC). A timeline detalhada vem ao vivo por ticket (não do resumo).
+- O seed de clientes tem os 22 do CSV. Para cobrir todos os ~3.456 clientes Tasks SC,
+  evoluir para busca ao vivo no endpoint `/customer` (futuro).
+- O board depende do sync que popula `movidesk_tickets` (hoje manual).

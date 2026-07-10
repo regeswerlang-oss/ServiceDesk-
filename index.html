@@ -91,6 +91,15 @@
   .chkrow{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12px;color:var(--txt)}
   .exist{background:#efe7fb;border:1px solid #d9c8f4;border-radius:8px;padding:8px 10px;font-size:12px;color:#5b2e91;margin-bottom:8px}
   .center-load{padding:60px;text-align:center;color:var(--mut);font-size:14px;width:100%}
+  /* timeline */
+  .tl-load{color:var(--mut);font-size:12px;padding:10px 2px}
+  #tl{display:flex;flex-direction:column;gap:10px;max-height:none}
+  .tlitem{border:1px solid var(--linha);border-radius:10px;padding:10px 12px;background:#fbfaff}
+  .tlh{font-size:12px;color:var(--roxo-esc);margin-bottom:6px}
+  .tlh b{color:var(--txt)} .tlh i{color:var(--mut);font-style:normal}
+  .tlb{font-size:12.5px;color:var(--txt);line-height:1.5;white-space:normal;word-break:break-word}
+  .tlmore,.tluse{margin-top:8px;margin-right:8px;background:#f0edf8;color:var(--roxo);border:0;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer}
+  .tluse{background:#e7f1fd;color:var(--nov)}
 </style>
 </head>
 <body>
@@ -229,6 +238,12 @@
     '</div>';
   }
 
+  // ---------- mapas do Movidesk (iguais ao app.py local) ----------
+  var ORIGIN={0:"Primeira ação",1:"Web (cliente)",2:"Web (agente)",3:"Email",4:"Gatilho do sistema",5:"Chat online",6:"Chat offline",7:"Email do sistema",8:"Formulário",9:"API",10:"Agendamento",13:"Telefone (recebida)",14:"Telefone (efetuada)",18:"WhatsApp",22:"Facebook Messenger",23:"WhatsApp Business"};
+  function originLabel(o){ return ORIGIN[o]!=null?ORIGIN[o]:("Origem "+o); }
+  function typeEmoji(tp){ return tp===1?"🔒":"💬"; }
+  var SEED=null;
+
   // ---------- drawer ----------
   function openDrawer(id){
     CUR=TICKETS.filter(function(t){return String(t.id)===String(id);})[0];
@@ -239,6 +254,71 @@
     wireDrawer(CUR);
     document.getElementById("ov").classList.add("open");
     document.getElementById("drawer").classList.add("open");
+    loadDetail(CUR);
+  }
+
+  async function loadDetail(t){
+    try{
+      if(!SEED) SEED=await window.TSC.seedClients();
+      var dl=document.getElementById("seedlist");
+      if(dl) dl.innerHTML=SEED.map(function(c){ return '<option value="'+esc(c.code)+'">'+esc(c.name)+'</option>'; }).join("");
+      var sug=suggestClient(t.client_organization||t.client_name||"");
+      var inp=document.getElementById("ct-customer"), sh=document.getElementById("ct-sug");
+      if(sug && inp && !inp.value){ inp.value=sug.code; if(sh) sh.innerHTML='✅ Sugerido: <b>'+esc(sug.code)+'</b> — '+esc(sug.name); }
+    }catch(e){}
+    var tl=document.getElementById("tl");
+    try{
+      var r=await window.TSC.movideskTicket(t.id);
+      renderTimeline((r&&r.data)||r);
+    }catch(e){
+      if(tl) tl.innerHTML='<div class="tl-load">Não foi possível carregar o histórico: '+esc(e&&e.message?e.message:e)+'<br><span style="font-size:11px">(requer o secret MOVIDESK_TOKEN no Supabase)</span></div>';
+    }
+  }
+
+  function norm(s){ return (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase(); }
+  var SKIP={"de":1,"da":1,"do":1,"dos":1,"das":1,"ltda":1,"sa":1,"me":1,"epp":1,"eireli":1,"e":1,"industria":1,"comercio":1,"com":1,"ind":1};
+  function suggestClient(orgName){
+    if(!SEED||!orgName) return null;
+    var target=norm(orgName);
+    var ex=SEED.filter(function(c){ return norm(c.name)===target; });
+    if(ex.length) return ex[0];
+    var toks=target.split(/[^a-z0-9]+/).filter(function(w){ return w.length>2 && !SKIP[w]; });
+    if(!toks.length) return null;
+    var best=null,bs=0;
+    SEED.forEach(function(c){ var n=norm(c.name),sc=0; toks.forEach(function(w){ if(n.indexOf(w)>=0) sc++; }); if(sc>bs){bs=sc;best=c;} });
+    return bs>0?best:null;
+  }
+
+  function renderTimeline(tk){
+    var tl=document.getElementById("tl"); if(!tl) return;
+    var acts=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted; });
+    acts.sort(function(a,b){ return String(b.createdDate||"").localeCompare(String(a.createdDate||"")); });
+    var cnt=document.getElementById("tl-count"); if(cnt) cnt.textContent="("+acts.length+")";
+    if(!acts.length){ tl.innerHTML='<div class="tl-load">Sem mensagens neste ticket.</div>'; return; }
+    var owner=String((tk.owner||{}).id||"");
+    tl.innerHTML=acts.map(function(a,i){
+      var cb=a.createdBy||{};
+      var who=cb.businessName||cb.email||cb.id||"?";
+      var mine=(String(cb.id||"")===owner)?' · <span style="color:var(--cli)">🆔 você</span>':'';
+      var desc=(a.description||"").trim();
+      var full=desc.length>900;
+      var shown=full?desc.slice(0,900)+"…":desc;
+      return '<div class="tlitem">'+
+        '<div class="tlh">'+typeEmoji(a.type)+' <b>'+esc(who)+'</b> · <i>'+esc(originLabel(a.origin))+'</i> · '+esc((a.createdDate||"—").slice(0,19).replace("T"," "))+mine+'</div>'+
+        '<div class="tlb" id="tlb-'+i+'">'+esc(shown).replace(/\n/g,"<br>")+'</div>'+
+        (full?'<button class="tlmore" data-i="'+i+'" data-full="'+encodeURIComponent(desc)+'">Ver mensagem completa</button>':'')+
+        '<button class="tluse" data-full="'+encodeURIComponent(desc)+'">↩︎ usar no comentário</button>'+
+      '</div>';
+    }).join("");
+    [].forEach.call(tl.querySelectorAll(".tlmore"),function(b){ b.addEventListener("click",function(){
+      var i=b.getAttribute("data-i"); document.getElementById("tlb-"+i).innerHTML=esc(decodeURIComponent(b.getAttribute("data-full"))).replace(/\n/g,"<br>"); b.remove();
+    });});
+    [].forEach.call(tl.querySelectorAll(".tluse"),function(b){ b.addEventListener("click",function(){
+      var ta=document.getElementById("mc-text"); if(!ta) return;
+      var txt=decodeURIComponent(b.getAttribute("data-full"));
+      ta.value=(ta.value?ta.value+"\n\n":"")+"> "+txt.replace(/\n/g,"\n> ");
+      ta.scrollIntoView({behavior:"smooth",block:"center"}); ta.focus();
+    });});
   }
   function closeDrawer(){ document.getElementById("ov").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); CUR=null; }
 
@@ -267,8 +347,10 @@
     '<div class="sec"><h4>📝 Criar Task no Tasks SC</h4>'+
       existTask+
       '<label>Título</label><input id="ct-title" value="'+esc(defTitle).slice(0,200)+'">'+
-      '<label>Código do cliente no Tasks SC</label><input id="ct-customer" placeholder="ex.: TFEHM600" >'+
-      '<div class="hint">Empresa Movidesk: <b>'+esc(t.client_organization||t.client_name||"—")+'</b>. Informe o código correspondente no Tasks SC.</div>'+
+      '<label>Código do cliente no Tasks SC</label>'+
+      '<input id="ct-customer" list="seedlist" placeholder="digite ou escolha (ex.: TFEHM600)" autocomplete="off">'+
+      '<datalist id="seedlist"></datalist>'+
+      '<div class="hint" id="ct-sug">Empresa Movidesk: <b>'+esc(t.client_organization||t.client_name||"—")+'</b>.</div>'+
       '<div class="row2">'+
         '<div><label>Tags (IDs)</label><input id="ct-tags" value="000050"></div>'+
         '<div><label>SLA (dias)</label><input id="ct-sla" type="number" value="1" min="0"></div>'+
@@ -286,6 +368,18 @@
       '<button class="btn warn" id="mc-btn">Enviar comentário</button>'+
       '<div class="msg" id="mc-msg"></div>'+
     '</div>'+
+
+    // ---- Classificação IA ----
+    '<div class="sec"><h4>🤖 Classificação (IA)</h4>'+
+      '<div class="hint">Sugere a categoria Tasks SC (Melhoria / Projeto / Sustentação) a partir do assunto.</div>'+
+      '<button class="btn ghost" id="cl-btn">Classificar agora</button>'+
+      '<div class="msg" id="cl-msg"></div>'+
+    '</div>'+
+    '</div>'+  // fecha .acts
+
+    // ---- Histórico de mensagens (timeline ao vivo) ----
+    '<div class="sec"><h4>🗨️ Histórico de mensagens <span id="tl-count" style="color:var(--mut);font-weight:500"></span></h4>'+
+      '<div id="tl"><div class="tl-load">Carregando histórico do Movidesk…</div></div>'+
     '</div>';
   }
 
@@ -334,6 +428,17 @@
         showMsg("mc-msg",true,"✓ Comentário enviado"+(payload.set_resolved?" e ticket marcado como Resolvido.":". Rode Recarregar para refletir."));
         document.getElementById("mc-text").value="";
       }catch(e){ showMsg("mc-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
+    });
+    // Classificar (IA)
+    var clb=document.getElementById("cl-btn");
+    if(clb) clb.addEventListener("click", async function(){
+      clb.disabled=true; var o=clb.textContent; clb.textContent="Classificando…";
+      try{
+        var r=await window.TSC.classify({ title:t.subject||"", description:(document.getElementById("ct-desc")?document.getElementById("ct-desc").value:"")||t.subject||"" });
+        var sug=(r&&(r.suggestion||r.data))||"";
+        showMsg("cl-msg",true,"Categoria sugerida: "+(sug||"(sem retorno)"));
+      }catch(e){ showMsg("cl-msg",false,"Erro: "+(e&&e.message?e.message:e)); }
+      clb.disabled=false; clb.textContent=o;
     });
   }
 

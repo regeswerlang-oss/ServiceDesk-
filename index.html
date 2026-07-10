@@ -490,7 +490,7 @@
       '<div class="hint">Adiciona uma ação <b>pública</b> ao ticket (visível ao cliente).</div>'+
       '<label>Comentário</label><textarea id="mc-text" placeholder="Escreva a resposta ao cliente…"></textarea>'+
       '<div class="chkrow"><input type="checkbox" id="mc-res"> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">marcar como Resolvido após enviar</label></div>'+
-      '<div id="mc-motrow" style="display:none"><label>Motivo do encerramento (exigido pelo Movidesk)</label><input id="mc-motivo" placeholder="o motivo EXATO cadastrado na sua conta Movidesk"><div class="hint">O Movidesk exige um motivo válido ao resolver. Digite o texto exato de um motivo existente (ele fica lembrado).</div></div>'+
+      '<div id="mc-motrow" style="display:none"><label>Motivo do encerramento (exigido pelo Movidesk)</label><input id="mc-motivo" list="motlist" placeholder="escolha ou digite o motivo cadastrado no Movidesk"><datalist id="motlist"></datalist><div class="hint" id="mc-mothint">O Movidesk exige um motivo válido ao resolver. Escolha um da lista (descoberta dos tickets já resolvidos) ou digite o texto exato.</div></div>'+
       '<button class="btn warn" id="mc-btn">Enviar comentário</button>'+
       '<div class="msg" id="mc-msg"></div>'+
     '</div>'+
@@ -574,7 +574,17 @@
     (function(){
       var res=document.getElementById("mc-res"), row=document.getElementById("mc-motrow"), mot=document.getElementById("mc-motivo");
       if(mot){ try{ mot.value=localStorage.getItem("sdhub_motivo")||""; }catch(e){} }
-      if(res&&row) res.addEventListener("change",function(){ row.style.display=res.checked?"block":"none"; if(res.checked&&mot) mot.focus(); });
+      var loaded=false;
+      async function loadReasons(){
+        if(loaded) return; loaded=true;
+        var dl=document.getElementById("motlist"), h=document.getElementById("mc-mothint");
+        try{
+          var r=await window.TSC.movideskReasons(); var list=(r&&r.data)||r||[];
+          if(dl) dl.innerHTML=list.map(function(x){ return '<option value="'+esc(x.reason)+'">'+esc(x.reason)+' ('+x.count+')</option>'; }).join("");
+          if(h) h.textContent=list.length?("Motivos encontrados: "+list.length+". Escolha um da lista ou digite."):"Nenhum motivo encontrado nos tickets resolvidos — digite o texto exato de um motivo do seu Movidesk.";
+        }catch(e){ loaded=false; if(h) h.textContent="Não consegui buscar motivos: "+(e&&e.message?e.message:e)+". Digite o motivo manualmente."; }
+      }
+      if(res&&row) res.addEventListener("change",function(){ row.style.display=res.checked?"block":"none"; if(res.checked){ if(mot) mot.focus(); loadReasons(); } });
     })();
     twoStep(document.getElementById("mc-btn"),"Enviar o comentário público ao cliente no Movidesk?", async function(){
       var text=(document.getElementById("mc-text").value||"").trim();

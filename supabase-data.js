@@ -206,6 +206,8 @@
   async function movideskComment(payload)    { return await callFn("movidesk-comment", payload || {}); }
   // Puxa o ticket Movidesk COMPLETO (com actions/histórico). Ver Edge Function movidesk-ticket.
   async function movideskTicket(ticketId)    { return await callFn("movidesk-ticket", { ticket_id: String(ticketId) }); }
+  // Descobre os motivos (justification) válidos a partir de tickets resolvidos. Ver movidesk-reasons.
+  async function movideskReasons()           { return await callFn("movidesk-reasons", {}); }
   // Seed de clientes (código Tasks SC ↔ nome) para o dropdown de criação de Task.
   async function seedClients() {
     await requireSession();
@@ -324,7 +326,7 @@
     searchEmails: searchEmails, getEmailById: getEmailById, getDecisoesMap: getDecisoesMap,
     getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
-    movideskTicket: movideskTicket, seedClients: seedClients, consultants: consultants, tags: tags,
+    movideskTicket: movideskTicket, movideskReasons: movideskReasons, seedClients: seedClients, consultants: consultants, tags: tags,
     taskHistory: taskHistory, taskUpdate: taskUpdate,
     _config: { URL: SUPA_URL, ANON: SUPA_ANON, FN: FN_BASE },
   };

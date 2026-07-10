@@ -533,8 +533,13 @@
       // ---- Task já existe → ALTERAR descrição (GET→merge→PUT) ----
       if(t.tasks_id){
         try{
-          await window.TSC.taskUpdate({ tasks_id:String(t.tasks_id), tasks_uuid:t.tasks_uuid||"", changes:{ description:descricao } });
-          showMsg("ct-msg",true,"✓ Descrição da Task "+t.tasks_id+" atualizada.");
+          var ru=await window.TSC.taskUpdate({ tasks_id:String(t.tasks_id), tasks_uuid:t.tasks_uuid||"", changes:{ description:descricao } });
+          var rd=(ru&&ru.data)||ru;
+          if(rd && rd.description_saved_len===0){
+            showMsg("ct-msg",false,"PUT aceito, mas a descrição voltou vazia no Tasks SC — o formato pode estar sendo recusado. Me avise para ajustar.");
+          } else {
+            showMsg("ct-msg",true,"✓ Descrição da Task "+t.tasks_id+" atualizada"+(rd&&rd.description_saved_len?(" ("+rd.description_saved_len+" chars)"):"")+".");
+          }
         }catch(e){ showMsg("ct-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
         return;
       }

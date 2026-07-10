@@ -308,8 +308,10 @@
   function buildHistoryHtml(tk){
     var pub=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted && a.type===2; });
     pub.sort(function(a,b){ return String(a.createdDate||"").localeCompare(String(b.createdDate||"")); });
-    if(!pub.length) return '<p style="font-style:italic;color:#6B6B85">(sem mensagens públicas registradas neste ticket)</p>';
-    var out='<h3 style="color:#1B1554;font-family:Arial,sans-serif;font-size:14px;margin:16px 0 12px;padding:8px 12px;background:#FAFAFB;border-left:4px solid #ED2C7B;border-radius:4px">💬 Histórico de mensagens públicas ('+pub.length+')</h3>';
+    var ct=contactOf(tk);
+    var ctHtml=(ct.email||ct.phone)?('<p style="font-family:Arial,sans-serif;font-size:13px;color:#2a2140;margin:0 0 10px"><b>Contato:</b> '+esc(ct.name||"")+(ct.email?' &lt;'+esc(ct.email)+'&gt;':"")+(ct.phone?' · Tel: '+esc(ct.phone):"")+'</p>'):"";
+    if(!pub.length) return ctHtml+'<p style="font-style:italic;color:#6B6B85">(sem mensagens públicas registradas neste ticket)</p>';
+    var out=ctHtml+'<h3 style="color:#1B1554;font-family:Arial,sans-serif;font-size:14px;margin:16px 0 12px;padding:8px 12px;background:#FAFAFB;border-left:4px solid #ED2C7B;border-radius:4px">💬 Histórico de mensagens públicas ('+pub.length+')</h3>';
     pub.forEach(function(a,i){
       var cb=a.createdBy||{};
       var who=cb.businessName||cb.email||cb.id||"?";
@@ -326,7 +328,9 @@
   function buildHistoryText(tk){
     var pub=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted && a.type===2; });
     pub.sort(function(a,b){ return String(a.createdDate||"").localeCompare(String(b.createdDate||"")); });
-    return pub.map(function(a){
+    var ct=contactOf(tk);
+    var head=(ct.email||ct.phone)?("Contato: "+(ct.name||"")+(ct.email?" <"+ct.email+">":"")+(ct.phone?" · Tel: "+ct.phone:"")+"\n\n"):"";
+    return head+pub.map(function(a){
       var cb=a.createdBy||{}; var who=cb.businessName||cb.email||cb.id||"?";
       var ts=(a.createdDate||"").slice(0,16).replace("T"," ");
       var txt=(a.description||"").replace(/<[^>]+>/g," ").replace(/\s+\n/g,"\n").trim();
@@ -334,8 +338,20 @@
     }).join("\n\n----------\n\n");
   }
 
+  function contactOf(tk){ var c=(tk&&tk._contact)||{}; return { name:c.name||"", email:c.email||"", phone:c.phone||"" }; }
+
   function renderTimeline(tk){
     if(CUR) CUR._full=tk;   // guarda o ticket completo p/ montar a descrição
+    // contato (e-mail/telefone) → mostra no drawer e anexa na descrição
+    try{
+      var ct=contactOf(tk);
+      var dc=document.getElementById("d-contato");
+      if(dc){ var parts=[ct.name||(CUR&&CUR.client_name)||"—"]; if(ct.email) parts.push("✉ "+ct.email); if(ct.phone) parts.push("☎ "+ct.phone); dc.innerHTML=esc(parts.join("  ·  ")); }
+      var d=document.getElementById("ct-desc");
+      if(d && (ct.email||ct.phone) && d.value.indexOf("Contato:")<0){
+        d.value+="\nContato: "+(ct.name||"")+(ct.email?" <"+ct.email+">":"")+(ct.phone?" · Tel: "+ct.phone:"");
+      }
+    }catch(e){}
     var tl=document.getElementById("tl"); if(!tl) return;
     var acts=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted; });
     acts.sort(function(a,b){ return String(b.createdDate||"").localeCompare(String(a.createdDate||"")); });
@@ -386,7 +402,7 @@
     return ''+
     '<div class="grid">'+
       fld("Empresa",t.client_organization)+
-      fld("Contato",t.client_name)+
+      '<div class="fld"><div class="k">Contato</div><div class="v" id="d-contato">'+esc(t.client_name||"—")+'</div></div>'+
       fld("Urgência",t.urgency)+
       fld("Equipe",t.owner_team)+
       fld("Criado",fmtDate(t.created_date))+

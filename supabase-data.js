@@ -215,6 +215,13 @@
     if (r.error) throw r.error;
     return (r.data || []).map(function (x) { return x.reason; });
   }
+  // Status de encerramento válidos (status ↔ justificativa nativa). Tabela movidesk_close_statuses.
+  async function closeStatuses() {
+    await requireSession();
+    const r = await sb.from("movidesk_close_statuses").select("status,justification,ord").order("ord");
+    if (r.error) throw r.error;
+    return (r.data || []).map(function (x) { return { status: x.status, justification: x.justification }; });
+  }
   // Seed de clientes (código Tasks SC ↔ nome) para o dropdown de criação de Task.
   async function seedClients() {
     await requireSession();
@@ -333,7 +340,7 @@
     searchEmails: searchEmails, getEmailById: getEmailById, getDecisoesMap: getDecisoesMap,
     getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
-    movideskTicket: movideskTicket, movideskReasons: movideskReasons, reasons: reasons, seedClients: seedClients, consultants: consultants, tags: tags,
+    movideskTicket: movideskTicket, movideskReasons: movideskReasons, reasons: reasons, closeStatuses: closeStatuses, seedClients: seedClients, consultants: consultants, tags: tags,
     taskHistory: taskHistory, taskUpdate: taskUpdate,
     _config: { URL: SUPA_URL, ANON: SUPA_ANON, FN: FN_BASE },
   };

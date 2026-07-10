@@ -246,7 +246,7 @@
   var ORIGIN={0:"Primeira ação",1:"Web (cliente)",2:"Web (agente)",3:"Email",4:"Gatilho do sistema",5:"Chat online",6:"Chat offline",7:"Email do sistema",8:"Formulário",9:"API",10:"Agendamento",13:"Telefone (recebida)",14:"Telefone (efetuada)",18:"WhatsApp",22:"Facebook Messenger",23:"WhatsApp Business"};
   function originLabel(o){ return ORIGIN[o]!=null?ORIGIN[o]:("Origem "+o); }
   function typeEmoji(tp){ return tp===1?"🔒":"💬"; }
-  var SEED=null;
+  var SEED=null, CONS=null;
 
   // ---------- drawer ----------
   function openDrawer(id){
@@ -269,6 +269,17 @@
       var sug=suggestClient(t.client_organization||t.client_name||"");
       var inp=document.getElementById("ct-customer"), sh=document.getElementById("ct-sug");
       if(sug && inp && !inp.value){ inp.value=sug.code; if(sh) sh.innerHTML='✅ Sugerido: <b>'+esc(sug.code)+'</b> — '+esc(sug.name); }
+    }catch(e){}
+    // consultores (Responsável) → select, com default marcado
+    try{
+      if(!CONS) CONS=await window.TSC.consultants();
+      var us=document.getElementById("ct-user");
+      if(us){
+        var def=(CONS.filter(function(c){return c.def;})[0]||{}).code||"000019";
+        us.innerHTML='<option value="">— selecione —</option>'+CONS.map(function(c){
+          return '<option value="'+esc(c.code)+'"'+(c.code===def?' selected':'')+'>'+esc(c.name)+' ('+esc(c.code)+')</option>';
+        }).join("");
+      }
     }catch(e){}
     var tl=document.getElementById("tl");
     try{
@@ -293,7 +304,26 @@
     return bs>0?best:null;
   }
 
+  // Monta o HTML do histórico de mensagens PÚBLICAS (type==2) p/ a descrição da Task.
+  function buildHistoryHtml(tk){
+    var pub=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted && a.type===2; });
+    pub.sort(function(a,b){ return String(a.createdDate||"").localeCompare(String(b.createdDate||"")); });
+    if(!pub.length) return '<p style="font-style:italic;color:#6B6B85">(sem mensagens públicas registradas neste ticket)</p>';
+    var out='<h3 style="color:#1B1554;font-family:Arial,sans-serif;font-size:14px;margin:16px 0 12px;padding:8px 12px;background:#FAFAFB;border-left:4px solid #ED2C7B;border-radius:4px">💬 Histórico de mensagens públicas ('+pub.length+')</h3>';
+    pub.forEach(function(a,i){
+      var cb=a.createdBy||{};
+      var who=cb.businessName||cb.email||cb.id||"?";
+      var ts=(a.createdDate||"").slice(0,19).replace("T"," ");
+      var body=a.htmlDescription||("<p>"+esc(a.description||"").replace(/\n/g,"<br>")+"</p>");
+      out+='<div style="border:1px solid #E7E0F3;border-radius:6px;padding:10px 12px;margin:8px 0;font-family:Arial,sans-serif;font-size:13px">'+
+           '<div style="color:#6E2DD8;font-weight:bold;margin-bottom:4px">'+esc(who)+' · '+esc(originLabel(a.origin))+' · '+esc(ts)+'</div>'+
+           '<div style="color:#2a2140">'+body+'</div></div>';
+    });
+    return out;
+  }
+
   function renderTimeline(tk){
+    if(CUR) CUR._full=tk;   // guarda o ticket completo p/ montar a descrição
     var tl=document.getElementById("tl"); if(!tl) return;
     var acts=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted; });
     acts.sort(function(a,b){ return String(b.createdDate||"").localeCompare(String(a.createdDate||"")); });
@@ -355,11 +385,14 @@
       '<input id="ct-customer" list="seedlist" placeholder="digite ou escolha (ex.: TFEHM600)" autocomplete="off">'+
       '<datalist id="seedlist"></datalist>'+
       '<div class="hint" id="ct-sug">Empresa Movidesk: <b>'+esc(t.client_organization||t.client_name||"—")+'</b>.</div>'+
+      '<label>Responsável (TOTVS SC)</label><select id="ct-user"><option value="">— selecione —</option></select>'+
       '<div class="row2">'+
         '<div><label>Tags (IDs)</label><input id="ct-tags" value="000050"></div>'+
+        '<div><label>Estimativa (h)</label><input id="ct-est" type="number" value="1" min="0" step="0.5"></div>'+
         '<div><label>SLA (dias)</label><input id="ct-sla" type="number" value="1" min="0"></div>'+
       '</div>'+
       '<label>Descrição</label><textarea id="ct-desc">Ticket Movidesk #'+esc(t.protocol||t.id)+' — '+esc(t.subject||'')+'\nEmpresa: '+esc(t.client_organization||t.client_name||'')+'</textarea>'+
+      '<div class="chkrow"><input type="checkbox" id="ct-hist" checked> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">anexar histórico de mensagens (HTML) na descrição</label></div>'+
       '<button class="btn prim" id="ct-btn">Criar Task SC</button>'+
       '<div class="msg" id="ct-msg"></div>'+
     '</div>'+
@@ -405,10 +438,18 @@
     twoStep(document.getElementById("ct-btn"),"Criar a Task SC para o cliente informado?", async function(){
       var customer=(document.getElementById("ct-customer").value||"").trim();
       if(!customer){ showMsg("ct-msg",false,"Informe o código do cliente no Tasks SC."); throw 0; }
+      var nota=(document.getElementById("ct-desc").value||"").trim();
+      var incHist=document.getElementById("ct-hist").checked;
+      var histHtml=(incHist && t._full)?buildHistoryHtml(t._full):"";
+      if(incHist && !t._full){ showMsg("ct-msg",false,"Aguarde o histórico carregar (ou desmarque a opção) e tente de novo."); throw 0; }
+      var descricao=(nota?('<p>'+esc(nota).replace(/\n/g,"<br>")+'</p>'):"")+(histHtml?("\n"+histHtml):"");
+      var est=parseFloat((document.getElementById("ct-est").value||"1").replace(",","."));
       var payload={
         title:(document.getElementById("ct-title").value||"").trim().slice(0,200),
-        description:(document.getElementById("ct-desc").value||"").trim(),
+        description:descricao,
         customer:customer,
+        user_assigned:(document.getElementById("ct-user").value||"").trim(),
+        time_estimate:isNaN(est)?1:est,
         tags:(document.getElementById("ct-tags").value||"").split(",").map(function(s){return s.trim();}).filter(Boolean),
         sla_days:parseInt(document.getElementById("ct-sla").value||"1",10),
         movidesk_ticket_id:String(t.id),

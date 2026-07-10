@@ -213,6 +213,13 @@
     if (r.error) throw r.error;
     return (r.data || []).map(function (x) { return { code: x.tasks_customer_code, name: x.tasks_customer_name }; });
   }
+  // Consultores TOTVS SC (código ↔ nome) para o campo Responsável.
+  async function consultants() {
+    await requireSession();
+    const r = await sb.from("tasks_consultants").select("code,name,is_default").order("name");
+    if (r.error) throw r.error;
+    return (r.data || []).map(function (x) { return { code: x.code, name: x.name, def: x.is_default === 1 }; });
+  }
 
   // ---------- emails (≈ Dados/{chave}_emails.json) ----------
   async function getEmails(code) {
@@ -306,7 +313,7 @@
     searchEmails: searchEmails, getEmailById: getEmailById, getDecisoesMap: getDecisoesMap,
     getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
-    movideskTicket: movideskTicket, seedClients: seedClients,
+    movideskTicket: movideskTicket, seedClients: seedClients, consultants: consultants,
     _config: { URL: SUPA_URL, ANON: SUPA_ANON, FN: FN_BASE },
   };
 })();

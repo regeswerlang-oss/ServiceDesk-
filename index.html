@@ -490,6 +490,7 @@
       '<div class="hint">Adiciona uma ação <b>pública</b> ao ticket (visível ao cliente).</div>'+
       '<label>Comentário</label><textarea id="mc-text" placeholder="Escreva a resposta ao cliente…"></textarea>'+
       '<div class="chkrow"><input type="checkbox" id="mc-res"> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">marcar como Resolvido após enviar</label></div>'+
+      '<div id="mc-motrow" style="display:none"><label>Motivo do encerramento (exigido pelo Movidesk)</label><input id="mc-motivo" placeholder="o motivo EXATO cadastrado na sua conta Movidesk"><div class="hint">O Movidesk exige um motivo válido ao resolver. Digite o texto exato de um motivo existente (ele fica lembrado).</div></div>'+
       '<button class="btn warn" id="mc-btn">Enviar comentário</button>'+
       '<div class="msg" id="mc-msg"></div>'+
     '</div>'+
@@ -569,10 +570,20 @@
       }catch(e){ showMsg("ct-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
     });
     // Comentar Movidesk
+    // mostra/esconde o campo motivo conforme "Resolvido" e lembra o último valor
+    (function(){
+      var res=document.getElementById("mc-res"), row=document.getElementById("mc-motrow"), mot=document.getElementById("mc-motivo");
+      if(mot){ try{ mot.value=localStorage.getItem("sdhub_motivo")||""; }catch(e){} }
+      if(res&&row) res.addEventListener("change",function(){ row.style.display=res.checked?"block":"none"; if(res.checked&&mot) mot.focus(); });
+    })();
     twoStep(document.getElementById("mc-btn"),"Enviar o comentário público ao cliente no Movidesk?", async function(){
       var text=(document.getElementById("mc-text").value||"").trim();
       if(!text){ showMsg("mc-msg",false,"Escreva o comentário."); throw 0; }
-      var payload={ ticket_id:String(t.id), text:text, set_resolved:document.getElementById("mc-res").checked };
+      var resolved=document.getElementById("mc-res").checked;
+      var motivo=(document.getElementById("mc-motivo")?document.getElementById("mc-motivo").value:"").trim();
+      if(resolved && !motivo){ showMsg("mc-msg",false,"Para resolver, informe o Motivo exato cadastrado no Movidesk."); throw 0; }
+      if(resolved && motivo){ try{ localStorage.setItem("sdhub_motivo",motivo); }catch(e){} }
+      var payload={ ticket_id:String(t.id), text:text, set_resolved:resolved, justification:resolved?motivo:"" };
       try{
         var r=await window.TSC.movideskComment(payload);
         showMsg("mc-msg",true,"✓ Comentário enviado"+(payload.set_resolved?" e ticket marcado como Resolvido.":". Rode Recarregar para refletir."));

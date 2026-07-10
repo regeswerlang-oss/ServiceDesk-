@@ -101,6 +101,12 @@
   .tlb{font-size:12.5px;color:var(--txt);line-height:1.5;white-space:normal;word-break:break-word}
   .tlmore,.tluse{margin-top:8px;margin-right:8px;background:#f0edf8;color:var(--roxo);border:0;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer}
   .tluse{background:#e7f1fd;color:var(--nov)}
+  .tlbar{position:sticky;top:0;background:#fff;padding:8px 0;font-size:11px;color:var(--mut);display:flex;flex-wrap:wrap;gap:6px;align-items:center;z-index:2;border-bottom:1px solid var(--linha);margin-bottom:4px}
+  .tlbtn{border:0;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;background:var(--roxo);color:#fff}
+  .tlbtn.occ{background:#0e9f6e}
+  .tlbtn.ghost{background:#f0edf8;color:var(--roxo)}
+  .tlpick{display:inline-flex;align-items:center;margin-right:6px}
+  .tlpick input{width:15px;height:15px}
 </style>
 </head>
 <body>
@@ -358,30 +364,37 @@
     var cnt=document.getElementById("tl-count"); if(cnt) cnt.textContent="("+acts.length+")";
     if(!acts.length){ tl.innerHTML='<div class="tl-load">Sem mensagens neste ticket.</div>'; return; }
     var owner=String((tk.owner||{}).id||"");
-    tl.innerHTML=acts.map(function(a,i){
+    var bar='<div class="tlbar">Marque as mensagens e adicione as selecionadas: '+
+      '<button class="tlbtn" id="sel-desc">→ Descrição</button>'+
+      '<button class="tlbtn occ" id="sel-occ">→ Ocorrência</button>'+
+      '<button class="tlbtn ghost" id="sel-toggle">marcar/desmarcar todas</button></div>';
+    tl.innerHTML=bar+acts.map(function(a,i){
       var cb=a.createdBy||{};
       var who=cb.businessName||cb.email||cb.id||"?";
       var mine=(String(cb.id||"")===owner)?' · <span style="color:var(--cli)">🆔 você</span>':'';
       var desc=(a.description||"").trim();
+      var ts=(a.createdDate||"—").slice(0,19).replace("T"," ");
+      var formatted="["+ts+"] "+who+":\n"+desc;   // vai para descrição/ocorrência
       var full=desc.length>900;
       var shown=full?desc.slice(0,900)+"…":desc;
       return '<div class="tlitem">'+
-        '<div class="tlh">'+typeEmoji(a.type)+' <b>'+esc(who)+'</b> · <i>'+esc(originLabel(a.origin))+'</i> · '+esc((a.createdDate||"—").slice(0,19).replace("T"," "))+mine+'</div>'+
+        '<div class="tlh"><label class="tlpick"><input type="checkbox" class="tlsel" data-full="'+encodeURIComponent(formatted)+'"> </label>'+typeEmoji(a.type)+' <b>'+esc(who)+'</b> · <i>'+esc(originLabel(a.origin))+'</i> · '+esc(ts)+mine+'</div>'+
         '<div class="tlb" id="tlb-'+i+'">'+esc(shown).replace(/\n/g,"<br>")+'</div>'+
         (full?'<button class="tlmore" data-i="'+i+'" data-full="'+encodeURIComponent(desc)+'">Ver mensagem completa</button>':'')+
-        '<button class="tluse" data-full="'+encodeURIComponent(desc)+'">↩︎ usar na ocorrência</button>'+
+        '<button class="tluse" data-full="'+encodeURIComponent(formatted)+'">↩︎ usar na ocorrência</button>'+
       '</div>';
     }).join("");
     [].forEach.call(tl.querySelectorAll(".tlmore"),function(b){ b.addEventListener("click",function(){
       var i=b.getAttribute("data-i"); document.getElementById("tlb-"+i).innerHTML=esc(decodeURIComponent(b.getAttribute("data-full"))).replace(/\n/g,"<br>"); b.remove();
     });});
+    function appendTo(ta, arr){ if(!ta||!arr.length) return; ta.value=(ta.value?ta.value.replace(/\s+$/,"")+"\n\n":"")+arr.join("\n\n----------\n\n"); ta.scrollIntoView({behavior:"smooth",block:"center"}); ta.focus(); }
+    function selected(){ return [].slice.call(tl.querySelectorAll(".tlsel:checked")).map(function(c){ return decodeURIComponent(c.getAttribute("data-full")); }); }
     [].forEach.call(tl.querySelectorAll(".tluse"),function(b){ b.addEventListener("click",function(){
-      // alvo: Ocorrência da Task (oc-text); se não houver Task vinculada, cai na descrição da nova Task
-      var ta=document.getElementById("oc-text")||document.getElementById("ct-desc"); if(!ta) return;
-      var txt=decodeURIComponent(b.getAttribute("data-full"));
-      ta.value=(ta.value?ta.value+"\n\n":"")+txt;
-      ta.scrollIntoView({behavior:"smooth",block:"center"}); ta.focus();
+      appendTo(document.getElementById("oc-text")||document.getElementById("ct-desc"), [decodeURIComponent(b.getAttribute("data-full"))]);
     });});
+    var sd=document.getElementById("sel-desc"); if(sd) sd.addEventListener("click",function(){ var s=selected(); if(!s.length){ alert("Marque ao menos uma mensagem."); return; } appendTo(document.getElementById("ct-desc"), s); });
+    var so=document.getElementById("sel-occ"); if(so) so.addEventListener("click",function(){ var s=selected(); if(!s.length){ alert("Marque ao menos uma mensagem."); return; } appendTo(document.getElementById("oc-text")||document.getElementById("ct-desc"), s); });
+    var st=document.getElementById("sel-toggle"); if(st) st.addEventListener("click",function(){ var boxes=tl.querySelectorAll(".tlsel"); var any=[].some.call(boxes,function(c){return !c.checked;}); [].forEach.call(boxes,function(c){ c.checked=any; }); });
   }
   function closeDrawer(){ document.getElementById("ov").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); CUR=null; }
 
@@ -430,8 +443,8 @@
         '<div><label>SLA (dias)</label><input id="ct-sla" type="number" value="1" min="0"></div>'+
       '</div>'+
       '<label>Descrição</label><textarea id="ct-desc">Ticket Movidesk #'+esc(t.protocol||t.id)+' — '+esc(t.subject||'')+'\nEmpresa: '+esc(t.client_organization||t.client_name||'')+'</textarea>'+
-      '<div class="chkrow"><input type="checkbox" id="ct-hist" checked> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">anexar histórico de mensagens (HTML) na descrição</label></div>'+
-      '<button class="btn prim" id="ct-btn">Criar Task SC</button>'+
+      '<div class="chkrow"><input type="checkbox" id="ct-hist"'+(t.tasks_id?'':' checked')+'> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">anexar histórico completo (HTML) na descrição</label></div>'+
+      '<button class="btn prim" id="ct-btn">'+(t.tasks_id?'💾 Alterar descrição da Task '+esc(t.tasks_id):'Criar Task SC')+'</button>'+
       '<div class="msg" id="ct-msg"></div>'+
     '</div>'+
 
@@ -473,14 +486,25 @@
 
   function wireDrawer(t){
     // Criar Task SC
-    twoStep(document.getElementById("ct-btn"),"Criar a Task SC para o cliente informado?", async function(){
-      var customer=(document.getElementById("ct-customer").value||"").trim();
-      if(!customer){ showMsg("ct-msg",false,"Informe o código do cliente no Tasks SC."); throw 0; }
+    twoStep(document.getElementById("ct-btn"), t.tasks_id?("Alterar a descrição da Task "+t.tasks_id+"?"):"Criar a Task SC para o cliente informado?", async function(){
       var nota=(document.getElementById("ct-desc").value||"").trim();
       var incHist=document.getElementById("ct-hist").checked;
-      var histHtml=(incHist && t._full)?buildHistoryHtml(t._full):"";
       if(incHist && !t._full){ showMsg("ct-msg",false,"Aguarde o histórico carregar (ou desmarque a opção) e tente de novo."); throw 0; }
+      var histHtml=(incHist && t._full)?buildHistoryHtml(t._full):"";
       var descricao=(nota?('<p>'+esc(nota).replace(/\n/g,"<br>")+'</p>'):"")+(histHtml?("\n"+histHtml):"");
+
+      // ---- Task já existe → ALTERAR descrição (GET→merge→PUT) ----
+      if(t.tasks_id){
+        try{
+          await window.TSC.taskUpdate({ tasks_id:String(t.tasks_id), tasks_uuid:t.tasks_uuid||"", changes:{ description:descricao } });
+          showMsg("ct-msg",true,"✓ Descrição da Task "+t.tasks_id+" atualizada.");
+        }catch(e){ showMsg("ct-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
+        return;
+      }
+
+      // ---- Nova Task → CRIAR ----
+      var customer=(document.getElementById("ct-customer").value||"").trim();
+      if(!customer){ showMsg("ct-msg",false,"Informe o código do cliente no Tasks SC."); throw 0; }
       var est=parseFloat((document.getElementById("ct-est").value||"1").replace(",","."));
       var payload={
         title:(document.getElementById("ct-title").value||"").trim().slice(0,200),

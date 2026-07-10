@@ -215,6 +215,8 @@
   }
   // Grava ocorrência no histórico da Task SC (resolve o uuid real pelo id). Ver task-history.
   async function taskHistory(payload)        { return await callFn("task-history", payload || {}); }
+  // Altera campos da Task SC (GET→merge→PUT, resolve uuid pelo id). Ver task-update.
+  async function taskUpdate(payload)         { return await callFn("task-update", payload || {}); }
   // Consultores TOTVS SC (código ↔ nome) para o campo Responsável.
   async function consultants() {
     await requireSession();
@@ -316,7 +318,7 @@
     getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
     movideskTicket: movideskTicket, seedClients: seedClients, consultants: consultants,
-    taskHistory: taskHistory,
+    taskHistory: taskHistory, taskUpdate: taskUpdate,
     _config: { URL: SUPA_URL, ANON: SUPA_ANON, FN: FN_BASE },
   };
 })();

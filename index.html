@@ -387,12 +387,13 @@
     '</div>';
   }
 
-  // Confirmação em 2 passos + chamada à edge function
-  function twoStep(btn, label, run){
-    var armed=false, orig=btn.textContent;
+  // Confirmação nativa + chamada à edge function
+  function twoStep(btn, confirmMsg, run){
+    if(!btn) return;
+    var orig=btn.textContent;
     btn.addEventListener("click", async function(){
-      if(!armed){ armed=true; btn.textContent="Confirmar: "+label; btn.classList.add("ghost"); setTimeout(function(){ if(armed){armed=false;btn.textContent=orig;btn.classList.remove("ghost");} },4000); return; }
-      armed=false; btn.classList.remove("ghost"); btn.disabled=true; btn.textContent="Enviando…";
+      if(!window.confirm(confirmMsg)) return;
+      btn.disabled=true; btn.textContent="Enviando…";
       try{ await run(); }catch(e){ /* run trata msg */ }
       btn.disabled=false; btn.textContent=orig;
     });
@@ -401,7 +402,7 @@
 
   function wireDrawer(t){
     // Criar Task SC
-    twoStep(document.getElementById("ct-btn"),"criar Task", async function(){
+    twoStep(document.getElementById("ct-btn"),"Criar a Task SC para o cliente informado?", async function(){
       var customer=(document.getElementById("ct-customer").value||"").trim();
       if(!customer){ showMsg("ct-msg",false,"Informe o código do cliente no Tasks SC."); throw 0; }
       var payload={
@@ -423,7 +424,7 @@
       }catch(e){ showMsg("ct-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
     });
     // Comentar Movidesk
-    twoStep(document.getElementById("mc-btn"),"enviar", async function(){
+    twoStep(document.getElementById("mc-btn"),"Enviar o comentário público ao cliente no Movidesk?", async function(){
       var text=(document.getElementById("mc-text").value||"").trim();
       if(!text){ showMsg("mc-msg",false,"Escreva o comentário."); throw 0; }
       var payload={ ticket_id:String(t.id), text:text, set_resolved:document.getElementById("mc-res").checked };

@@ -369,16 +369,17 @@
         '<div class="tlh">'+typeEmoji(a.type)+' <b>'+esc(who)+'</b> · <i>'+esc(originLabel(a.origin))+'</i> · '+esc((a.createdDate||"—").slice(0,19).replace("T"," "))+mine+'</div>'+
         '<div class="tlb" id="tlb-'+i+'">'+esc(shown).replace(/\n/g,"<br>")+'</div>'+
         (full?'<button class="tlmore" data-i="'+i+'" data-full="'+encodeURIComponent(desc)+'">Ver mensagem completa</button>':'')+
-        '<button class="tluse" data-full="'+encodeURIComponent(desc)+'">↩︎ usar no comentário</button>'+
+        '<button class="tluse" data-full="'+encodeURIComponent(desc)+'">↩︎ usar na ocorrência</button>'+
       '</div>';
     }).join("");
     [].forEach.call(tl.querySelectorAll(".tlmore"),function(b){ b.addEventListener("click",function(){
       var i=b.getAttribute("data-i"); document.getElementById("tlb-"+i).innerHTML=esc(decodeURIComponent(b.getAttribute("data-full"))).replace(/\n/g,"<br>"); b.remove();
     });});
     [].forEach.call(tl.querySelectorAll(".tluse"),function(b){ b.addEventListener("click",function(){
-      var ta=document.getElementById("mc-text"); if(!ta) return;
+      // alvo: Ocorrência da Task (oc-text); se não houver Task vinculada, cai na descrição da nova Task
+      var ta=document.getElementById("oc-text")||document.getElementById("ct-desc"); if(!ta) return;
       var txt=decodeURIComponent(b.getAttribute("data-full"));
-      ta.value=(ta.value?ta.value+"\n\n":"")+"> "+txt.replace(/\n/g,"\n> ");
+      ta.value=(ta.value?ta.value+"\n\n":"")+txt;
       ta.scrollIntoView({behavior:"smooth",block:"center"}); ta.focus();
     });});
   }

@@ -515,7 +515,6 @@
     // Adicionar ocorrência na Task SC (quando já existe Task)
     var ocb=document.getElementById("oc-btn");
     if(ocb) twoStep(ocb,"Gravar esta ocorrência no histórico da Task SC?", async function(){
-      if(!t.tasks_uuid){ showMsg("oc-msg",false,"Sem o UUID da Task. Recarregue o painel e reabra o ticket para gravar a ocorrência."); throw 0; }
       var texto=(document.getElementById("oc-text").value||"").trim();
       if(document.getElementById("oc-hist").checked && t._full){
         var h=buildHistoryText(t._full);
@@ -523,7 +522,7 @@
       }
       if(!texto){ showMsg("oc-msg",false,"Escreva a ocorrência ou marque incluir as mensagens."); throw 0; }
       try{
-        await window.TSC.tasksSc("add-history", { uuid_ticket:t.tasks_uuid, details:texto, type:"0" });
+        await window.TSC.taskHistory({ tasks_id:String(t.tasks_id||""), tasks_uuid:t.tasks_uuid||"", details:texto, type:"1" });
         showMsg("oc-msg",true,"✓ Ocorrência gravada no histórico da Task "+t.tasks_id);
         document.getElementById("oc-text").value="";
       }catch(e){ showMsg("oc-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }

@@ -213,6 +213,8 @@
     if (r.error) throw r.error;
     return (r.data || []).map(function (x) { return { code: x.tasks_customer_code, name: x.tasks_customer_name }; });
   }
+  // Grava ocorrência no histórico da Task SC (resolve o uuid real pelo id). Ver task-history.
+  async function taskHistory(payload)        { return await callFn("task-history", payload || {}); }
   // Consultores TOTVS SC (código ↔ nome) para o campo Responsável.
   async function consultants() {
     await requireSession();
@@ -314,6 +316,7 @@
     getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
     movideskTicket: movideskTicket, seedClients: seedClients, consultants: consultants,
+    taskHistory: taskHistory,
     _config: { URL: SUPA_URL, ANON: SUPA_ANON, FN: FN_BASE },
   };
 })();

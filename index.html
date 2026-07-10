@@ -252,7 +252,7 @@
   var ORIGIN={0:"Primeira ação",1:"Web (cliente)",2:"Web (agente)",3:"Email",4:"Gatilho do sistema",5:"Chat online",6:"Chat offline",7:"Email do sistema",8:"Formulário",9:"API",10:"Agendamento",13:"Telefone (recebida)",14:"Telefone (efetuada)",18:"WhatsApp",22:"Facebook Messenger",23:"WhatsApp Business"};
   function originLabel(o){ return ORIGIN[o]!=null?ORIGIN[o]:("Origem "+o); }
   function typeEmoji(tp){ return tp===1?"🔒":"💬"; }
-  var SEED=null, CONS=null;
+  var SEED=null, CONS=null, TAGS=null;
 
   // ---------- drawer ----------
   function openDrawer(id){
@@ -284,6 +284,16 @@
         var def=(CONS.filter(function(c){return c.def;})[0]||{}).code||"000019";
         us.innerHTML='<option value="">— selecione —</option>'+CONS.map(function(c){
           return '<option value="'+esc(c.code)+'"'+(c.code===def?' selected':'')+'>'+esc(c.name)+' ('+esc(c.code)+')</option>';
+        }).join("");
+      }
+    }catch(e){}
+    // tags (nome no lugar do código) → default SERVICE DESK (000232)
+    try{
+      if(!TAGS) TAGS=await window.TSC.tags();
+      var ts=document.getElementById("ct-tags");
+      if(ts && TAGS.length){
+        ts.innerHTML=TAGS.map(function(g){
+          return '<option value="'+esc(g.code)+'"'+(g.code==="000232"?' selected':'')+'>'+esc(g.name)+'</option>';
         }).join("");
       }
     }catch(e){}
@@ -344,7 +354,20 @@
     }).join("\n\n----------\n\n");
   }
 
-  function contactOf(tk){ var c=(tk&&tk._contact)||{}; return { name:c.name||"", email:c.email||"", phone:c.phone||"" }; }
+  function contactOf(tk){
+    var c=(tk&&tk._contact)||{};
+    var name=c.name, email=c.email, phone=c.phone;
+    var cl=(((tk&&tk.clients)||[])[0])||{};
+    if(!name) name=cl.businessName;
+    if(!email) email=cl.email;
+    if(!phone) phone=cl.phone||cl.phoneNumber;
+    if(!email){ // fallback: procura e-mail de um cliente nas ações
+      var acts=(tk&&tk.actions)||[];
+      for(var i=0;i<acts.length;i++){ var cb=acts[i].createdBy||{}; if(cb.email && (cb.personType===1||cb.personType===2||!cb.personType)){ email=cb.email; if(!name)name=cb.businessName; break; } }
+    }
+    return { name:name||"", email:email||"", phone:phone||"" };
+  }
+  function contactStr(ct){ return "Contato: "+(ct.name||"")+(ct.email?" <"+ct.email+">":"")+(ct.phone?" · Tel: "+ct.phone:""); }
 
   function renderTimeline(tk){
     if(CUR) CUR._full=tk;   // guarda o ticket completo p/ montar a descrição
@@ -353,9 +376,22 @@
       var ct=contactOf(tk);
       var dc=document.getElementById("d-contato");
       if(dc){ var parts=[ct.name||(CUR&&CUR.client_name)||"—"]; if(ct.email) parts.push("✉ "+ct.email); if(ct.phone) parts.push("☎ "+ct.phone); dc.innerHTML=esc(parts.join("  ·  ")); }
-      var d=document.getElementById("ct-desc");
-      if(d && (ct.email||ct.phone) && d.value.indexOf("Contato:")<0){
-        d.value+="\nContato: "+(ct.name||"")+(ct.email?" <"+ct.email+">":"")+(ct.phone?" · Tel: "+ct.phone:"");
+      // bloco de contato com botões de inserir
+      var cc=document.getElementById("ct-contact");
+      if(cc){
+        if(ct.email||ct.phone){
+          cc.innerHTML='<div style="background:#eef7ff;border:1px solid #cfe4fb;border-radius:8px;padding:8px 10px;margin:2px 0 8px;font-size:12px">'+
+            '📇 <b>Contato:</b> '+esc(ct.name||"")+(ct.email?' · ✉ '+esc(ct.email):'')+(ct.phone?' · ☎ '+esc(ct.phone):'')+
+            '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">'+
+              '<button class="tlbtn" id="cc-desc">→ Descrição</button>'+
+              '<button class="tlbtn occ" id="cc-occ">→ Ocorrência</button>'+
+            '</div></div>';
+          var s=contactStr(ct);
+          var bd=document.getElementById("cc-desc"); if(bd) bd.addEventListener("click",function(){ var ta=document.getElementById("ct-desc"); if(ta){ ta.value=(ta.value?ta.value.replace(/\s+$/,"")+"\n":"")+s; ta.focus(); } });
+          var bo=document.getElementById("cc-occ"); if(bo) bo.addEventListener("click",function(){ var ta=document.getElementById("oc-text")||document.getElementById("ct-desc"); if(ta){ ta.value=(ta.value?ta.value.replace(/\s+$/,"")+"\n":"")+s; ta.focus(); } });
+        } else {
+          cc.innerHTML='<div class="hint">Sem e-mail/telefone cadastrados para este contato no Movidesk.</div>';
+        }
       }
     }catch(e){}
     var tl=document.getElementById("tl"); if(!tl) return;
@@ -436,9 +472,10 @@
       '<input id="ct-customer" list="seedlist" placeholder="digite ou escolha (ex.: TFEHM600)" autocomplete="off">'+
       '<datalist id="seedlist"></datalist>'+
       '<div class="hint" id="ct-sug">Empresa Movidesk: <b>'+esc(t.client_organization||t.client_name||"—")+'</b>.</div>'+
+      '<div id="ct-contact"></div>'+
       '<label>Responsável (TOTVS SC)</label><select id="ct-user"><option value="">— selecione —</option></select>'+
+      '<label>Tag</label><select id="ct-tags"><option value="000232">SERVICE DESK</option></select>'+
       '<div class="row2">'+
-        '<div><label>Tags (IDs)</label><input id="ct-tags" value="000050"></div>'+
         '<div><label>Estimativa (h)</label><input id="ct-est" type="number" value="1" min="0" step="0.5"></div>'+
         '<div><label>SLA (dias)</label><input id="ct-sla" type="number" value="1" min="0"></div>'+
       '</div>'+

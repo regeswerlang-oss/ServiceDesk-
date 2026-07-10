@@ -217,6 +217,13 @@
   async function taskHistory(payload)        { return await callFn("task-history", payload || {}); }
   // Altera campos da Task SC (GET→merge→PUT, resolve uuid pelo id). Ver task-update.
   async function taskUpdate(payload)         { return await callFn("task-update", payload || {}); }
+  // Catálogo de tags do Tasks SC (código ↔ nome) para o dropdown de tags.
+  async function tags() {
+    await requireSession();
+    const r = await sb.from("tasks_tags").select("code,name").order("name");
+    if (r.error) throw r.error;
+    return (r.data || []).map(function (x) { return { code: x.code, name: x.name }; });
+  }
   // Consultores TOTVS SC (código ↔ nome) para o campo Responsável.
   async function consultants() {
     await requireSession();
@@ -317,7 +324,7 @@
     searchEmails: searchEmails, getEmailById: getEmailById, getDecisoesMap: getDecisoesMap,
     getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
-    movideskTicket: movideskTicket, seedClients: seedClients, consultants: consultants,
+    movideskTicket: movideskTicket, seedClients: seedClients, consultants: consultants, tags: tags,
     taskHistory: taskHistory, taskUpdate: taskUpdate,
     _config: { URL: SUPA_URL, ANON: SUPA_ANON, FN: FN_BASE },
   };

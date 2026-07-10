@@ -1,0 +1,21 @@
+# Segredos e locais — NUNCA versionar
+.env
+.env.*
+!.env.example
+conf/
+*.secret
+*.key
+
+# Dados de cliente / dumps
+*.xlsx
+*.db
+state.db
+
+# SO / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node (não usado, mas por garantia)
+node_modules/

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDHub · Service Desk (Movidesk) — TOTVS SC</title>
+<!-- Camada de dados Supabase (login, leitura, edge functions). Deve vir antes de tudo. -->
+<script src="supabase-data.js"></script>
+<style>
+  :root{
+    --roxo:#5B2E91; --roxo2:#7A44BE; --roxo-esc:#3F1F66;
+    --bg:#f4f1fa; --card:#ffffff; --linha:#e7e0f3; --txt:#2a2140; --mut:#7a7290;
+    --nov:#2563eb; --and:#0891b2; --esp:#d97706; --imp:#dc2626; --res:#16a34a; --cli:#7c3aed;
+    --shadow:0 1px 3px rgba(60,30,110,.08),0 6px 18px rgba(60,30,110,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+  header{background:linear-gradient(100deg,var(--roxo-esc),var(--roxo) 55%,var(--roxo2));color:#fff;padding:16px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header .brand{font-size:19px;font-weight:800;letter-spacing:.2px}
+  header .brand small{display:block;font-size:11px;font-weight:500;opacity:.85;letter-spacing:.4px}
+  header .sp{flex:1}
+  header .who{font-size:12px;opacity:.9}
+  header button{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-weight:600}
+  header button:hover{background:rgba(255,255,255,.24)}
+
+  .kpis{display:flex;gap:12px;padding:16px 22px 4px;flex-wrap:wrap}
+  .kpi{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:12px 16px;min-width:120px;flex:1}
+  .kpi .n{font-size:24px;font-weight:800;line-height:1}
+  .kpi .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-top:5px}
+  .kpi.acc-nov .n{color:var(--nov)} .kpi.acc-esp .n{color:var(--esp)}
+  .kpi.acc-res .n{color:var(--res)} .kpi.acc-task .n{color:var(--cli)}
+
+  .toolbar{display:flex;gap:10px;padding:12px 22px;flex-wrap:wrap;align-items:center}
+  .toolbar input,.toolbar select{border:1px solid var(--linha);border-radius:8px;padding:8px 10px;font-size:13px;background:#fff;color:var(--txt)}
+  .toolbar input[type=search]{min-width:230px}
+  .toolbar label.chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);cursor:pointer}
+  .toolbar .count{margin-left:auto;font-size:12px;color:var(--mut)}
+
+  .board{display:flex;gap:14px;padding:6px 22px 30px;overflow-x:auto;align-items:flex-start;min-height:50vh}
+  .col{background:transparent;min-width:290px;max-width:320px;flex:0 0 auto}
+  .col h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--roxo-esc);margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .col h3 .dot{width:9px;height:9px;border-radius:50%}
+  .col h3 .qt{margin-left:auto;background:var(--linha);color:var(--roxo-esc);border-radius:20px;padding:1px 9px;font-size:11px}
+  .col .stack{display:flex;flex-direction:column;gap:9px}
+
+  .tk{background:var(--card);border-radius:11px;box-shadow:var(--shadow);padding:11px 12px;cursor:pointer;border-left:4px solid var(--linha);transition:transform .08s}
+  .tk:hover{transform:translateY(-1px)}
+  .tk .top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:5px}
+  .tk .proto{font-size:11px;color:var(--mut);font-weight:600}
+  .tk .subj{font-size:13px;font-weight:600;line-height:1.3;margin:2px 0 7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .tk .org{font-size:12px;color:var(--roxo);font-weight:600;display:flex;align-items:center;gap:5px}
+  .tk .meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .badge{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;white-space:nowrap}
+  .b-urg{background:#fdecec;color:#c0392b} .b-urg.med{background:#fff4e2;color:#b8730a} .b-urg.baixa{background:#eef7ee;color:#2f7d33}
+  .b-age{background:#f0edf8;color:#5B2E91} .b-age.old{background:#fdecec;color:#c0392b}
+  .b-task{background:#efe7fb;color:#7c3aed} .b-notask{background:#f2f2f4;color:#8a8698}
+  .b-act{background:#e7f1fd;color:#2563eb}
+
+  /* drawer */
+  .ov{position:fixed;inset:0;background:rgba(30,15,55,.45);display:none;z-index:900}
+  .ov.open{display:block}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(520px,94vw);background:#fff;box-shadow:-8px 0 40px rgba(40,20,80,.25);transform:translateX(100%);transition:transform .22s;z-index:901;display:flex;flex-direction:column}
+  .drawer.open{transform:translateX(0)}
+  .drawer .dh{background:linear-gradient(100deg,var(--roxo-esc),var(--roxo));color:#fff;padding:16px 18px}
+  .drawer .dh .proto{font-size:11px;opacity:.85;font-weight:600}
+  .drawer .dh .subj{font-size:15px;font-weight:700;margin-top:3px;line-height:1.3}
+  .drawer .dh .x{position:absolute;top:12px;right:14px;background:none;border:0;color:#fff;font-size:22px;cursor:pointer;line-height:1}
+  .drawer .db{padding:16px 18px;overflow-y:auto;flex:1}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-bottom:14px}
+  .fld .k{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--mut)}
+  .fld .v{font-size:13px;font-weight:600;margin-top:1px;word-break:break-word}
+  .sec{border-top:1px solid var(--linha);padding-top:14px;margin-top:6px}
+  .sec h4{margin:0 0 10px;font-size:13px;color:var(--roxo-esc);display:flex;align-items:center;gap:7px}
+  .sec label{display:block;font-size:11px;color:var(--mut);margin:8px 0 3px;text-transform:uppercase;letter-spacing:.3px}
+  .sec input,.sec textarea,.sec select{width:100%;border:1px solid var(--linha);border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit}
+  .sec textarea{min-height:80px;resize:vertical}
+  .row2{display:flex;gap:10px}.row2>*{flex:1}
+  .btn{border:0;border-radius:9px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:12px}
+  .btn.prim{background:var(--roxo);color:#fff}.btn.prim:hover{background:var(--roxo-esc)}
+  .btn.warn{background:#0e9f6e;color:#fff}
+  .btn.ghost{background:#f0edf8;color:var(--roxo)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .hint{font-size:11px;color:var(--mut);margin-top:4px;line-height:1.4}
+  .msg{border-radius:8px;padding:9px 11px;font-size:12px;margin-top:10px;display:none}
+  .msg.ok{background:#e7f7ee;color:#12703f;display:block}
+  .msg.er{background:#fdecec;color:#c0392b;display:block}
+  .chkrow{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12px;color:var(--txt)}
+  .exist{background:#efe7fb;border:1px solid #d9c8f4;border-radius:8px;padding:8px 10px;font-size:12px;color:#5b2e91;margin-bottom:8px}
+  .center-load{padding:60px;text-align:center;color:var(--mut);font-size:14px;width:100%}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">SDHub · Service Desk<small>MOVIDESK × TASKS SC — TOTVS SANTA CATARINA</small></div>
+  <div class="sp"></div>
+  <div class="who" id="who"></div>
+  <button id="btnReload">↻ Recarregar</button>
+  <button id="btnLogout">Sair</button>
+</header>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="toolbar">
+  <input type="search" id="q" placeholder="Buscar assunto, protocolo, empresa…">
+  <select id="fEmpresa"><option value="">Todas as empresas</option></select>
+  <select id="fUrg"><option value="">Toda urgência</option></select>
+  <select id="fTask">
+    <option value="">Task SC: todas</option>
+    <option value="sem">Sem Task SC</option>
+    <option value="com">Com Task SC</option>
+  </select>
+  <label class="chk"><input type="checkbox" id="fResolv"> mostrar resolvidos/arquivados</label>
+  <span class="count" id="count"></span>
+</div>
+
+<div class="board" id="board"><div class="center-load">Carregando tickets…</div></div>
+
+<!-- Drawer de detalhes -->
+<div class="ov" id="ov"></div>
+<div class="drawer" id="drawer">
+  <div class="dh" style="position:relative">
+    <button class="x" id="dx">×</button>
+    <div class="proto" id="d-proto"></div>
+    <div class="subj" id="d-subj"></div>
+  </div>
+  <div class="db" id="d-body"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var TICKETS = [];       // payloads Movidesk
+  var CUR = null;         // ticket aberto no drawer
+
+  // ---------- ordenação canônica das colunas ----------
+  var ORDER = ["Novo","Em atendimento","Aguardando Consultoria","Em Espera","Impeditivo","Em Validação","Em Validação (Cliente)","Resolvido","Cancelado"];
+  function colColor(st){
+    var s=(st||"").toLowerCase();
+    if(s.indexOf("novo")>=0) return "var(--nov)";
+    if(s.indexOf("atend")>=0) return "var(--and)";
+    if(s.indexOf("consultor")>=0||s.indexOf("espera")>=0||s.indexOf("aguard")>=0) return "var(--esp)";
+    if(s.indexOf("impedit")>=0) return "var(--imp)";
+    if(s.indexOf("valida")>=0) return "var(--cli)";
+    if(s.indexOf("resolv")>=0) return "var(--res)";
+    return "var(--roxo2)";
+  }
+
+  function daysSince(iso){ if(!iso) return null; var d=new Date(iso); if(isNaN(d)) return null; return Math.floor((Date.now()-d.getTime())/86400000); }
+  function fmtDate(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return iso; return d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+  function isActive(t){ var b=(t.base_status||""); return b!=="Resolved" && b!=="Closed" && b!=="Canceled" && String(t.is_archived)!=="1"; }
+  function urgClass(u){ var s=(u||"").toLowerCase(); if(s.indexOf("alta")>=0||s.indexOf("1:")>=0||s.indexOf("crít")>=0) return ""; if(s.indexOf("méd")>=0||s.indexOf("med")>=0||s.indexOf("2:")>=0) return "med"; return "baixa"; }
+
+  // ---------- filtros ----------
+  function passesFilters(t){
+    var showRes = document.getElementById("fResolv").checked;
+    if(!showRes && !isActive(t)) return false;
+    var q=(document.getElementById("q").value||"").trim().toLowerCase();
+    if(q){ var hay=[(t.subject||""),(t.protocol||""),(t.client_organization||""),(t.client_name||"")].join(" ").toLowerCase(); if(hay.indexOf(q)<0) return false; }
+    var emp=document.getElementById("fEmpresa").value; if(emp && (t.client_organization||"")!==emp) return false;
+    var urg=document.getElementById("fUrg").value; if(urg && (t.urgency||"")!==urg) return false;
+    var tk=document.getElementById("fTask").value;
+    if(tk==="sem" && t.tasks_id) return false;
+    if(tk==="com" && !t.tasks_id) return false;
+    return true;
+  }
+
+  // ---------- KPIs ----------
+  function renderKpis(){
+    var active=TICKETS.filter(isActive);
+    var novos=active.filter(function(t){return (t.base_status==="New")||/novo/i.test(t.status||"");}).length;
+    var espera=active.filter(function(t){return /consultor|espera|aguard/i.test(t.status||"");}).length;
+    var semTask=active.filter(function(t){return !t.tasks_id;}).length;
+    var resolvidos=TICKETS.filter(function(t){return !isActive(t);}).length;
+    var k=[
+      {n:active.length,l:"Ativos",c:""},
+      {n:novos,l:"Novos",c:"acc-nov"},
+      {n:espera,l:"Aguardando",c:"acc-esp"},
+      {n:semTask,l:"Sem Task SC",c:"acc-task"},
+      {n:resolvidos,l:"Resolvidos",c:"acc-res"}
+    ];
+    document.getElementById("kpis").innerHTML=k.map(function(x){return '<div class="kpi '+x.c+'"><div class="n">'+x.n+'</div><div class="l">'+x.l+'</div></div>';}).join("");
+  }
+
+  // ---------- popular selects ----------
+  function fillSelects(){
+    var emp={}, urg={};
+    TICKETS.forEach(function(t){ if(t.client_organization) emp[t.client_organization]=1; if(t.urgency) urg[t.urgency]=1; });
+    var se=document.getElementById("fEmpresa"), su=document.getElementById("fUrg");
+    Object.keys(emp).sort().forEach(function(e){ se.insertAdjacentHTML("beforeend",'<option>'+esc(e)+'</option>'); });
+    Object.keys(urg).sort().forEach(function(u){ su.insertAdjacentHTML("beforeend",'<option>'+esc(u)+'</option>'); });
+  }
+
+  // ---------- board ----------
+  function render(){
+    var list=TICKETS.filter(passesFilters);
+    document.getElementById("count").textContent=list.length+" de "+TICKETS.length+" tickets";
+    var cols={};
+    list.forEach(function(t){ var s=t.status||t.base_status||"Sem status"; (cols[s]=cols[s]||[]).push(t); });
+    var keys=Object.keys(cols).sort(function(a,b){
+      var ia=ORDER.indexOf(a), ib=ORDER.indexOf(b);
+      if(ia<0)ia=99; if(ib<0)ib=99; if(ia!==ib) return ia-ib; return a.localeCompare(b);
+    });
+    var board=document.getElementById("board");
+    if(!list.length){ board.innerHTML='<div class="center-load">Nenhum ticket com os filtros atuais.</div>'; return; }
+    board.innerHTML=keys.map(function(s){
+      var items=cols[s].sort(function(a,b){ return new Date(b.last_update||0)-new Date(a.last_update||0); });
+      return '<div class="col"><h3><span class="dot" style="background:'+colColor(s)+'"></span>'+esc(s)+'<span class="qt">'+items.length+'</span></h3><div class="stack">'+
+        items.map(cardHtml).join("")+'</div></div>';
+    }).join("");
+    [].forEach.call(board.querySelectorAll(".tk"),function(el){ el.addEventListener("click",function(){ openDrawer(el.getAttribute("data-id")); }); });
+  }
+
+  function cardHtml(t){
+    var age=daysSince(t.last_update);
+    var ageB= age==null?"":'<span class="badge b-age'+(age>7?' old':'')+'">'+age+'d</span>';
+    var urgB= t.urgency?'<span class="badge b-urg '+urgClass(t.urgency)+'">'+esc(t.urgency)+'</span>':'';
+    var taskB= t.tasks_id?'<span class="badge b-task">Task '+esc(t.tasks_id)+'</span>':'<span class="badge b-notask">sem Task</span>';
+    var actB= t.last_action_count?'<span class="badge b-act">'+t.last_action_count+' ações</span>':'';
+    return '<div class="tk" data-id="'+esc(t.id)+'" style="border-left-color:'+colColor(t.status)+'">'+
+      '<div class="top"><span class="proto">#'+esc(t.protocol||t.id)+'</span></div>'+
+      '<div class="subj">'+esc(t.subject||"(sem assunto)")+'</div>'+
+      '<div class="org">🏢 '+esc(t.client_organization||t.client_name||"—")+'</div>'+
+      '<div class="meta">'+urgB+ageB+actB+taskB+'</div>'+
+    '</div>';
+  }
+
+  // ---------- drawer ----------
+  function openDrawer(id){
+    CUR=TICKETS.filter(function(t){return String(t.id)===String(id);})[0];
+    if(!CUR) return;
+    document.getElementById("d-proto").textContent="#"+(CUR.protocol||CUR.id)+"  ·  status: "+(CUR.status||CUR.base_status||"—");
+    document.getElementById("d-subj").textContent=CUR.subject||"(sem assunto)";
+    document.getElementById("d-body").innerHTML=bodyHtml(CUR);
+    wireDrawer(CUR);
+    document.getElementById("ov").classList.add("open");
+    document.getElementById("drawer").classList.add("open");
+  }
+  function closeDrawer(){ document.getElementById("ov").classList.remove("open"); document.getElementById("drawer").classList.remove("open"); CUR=null; }
+
+  function fld(k,v){ return '<div class="fld"><div class="k">'+k+'</div><div class="v">'+esc(v==null||v===""?"—":v)+'</div></div>'; }
+
+  function bodyHtml(t){
+    var age=daysSince(t.last_update);
+    var existTask = t.tasks_id ? '<div class="exist">✓ Já existe Task SC vinculada: <b>'+esc(t.tasks_id)+'</b>'+(t.tasks_created_at?' ('+fmtDate(t.tasks_created_at)+')':'')+'</div>' : '';
+    var defTitle = '['+(t.protocol||t.id)+'] '+(t.subject||'');
+    return ''+
+    '<div class="grid">'+
+      fld("Empresa",t.client_organization)+
+      fld("Contato",t.client_name)+
+      fld("Urgência",t.urgency)+
+      fld("Equipe",t.owner_team)+
+      fld("Criado",fmtDate(t.created_date))+
+      fld("Últ. atualização",fmtDate(t.last_update)+(age!=null?" ("+age+"d)":""))+
+      fld("Últ. ação",fmtDate(t.last_action_date))+
+      fld("Nº de ações",t.last_action_count)+
+      fld("Base status",t.base_status)+
+      fld("Sync",fmtDate(t.last_synced_at))+
+    '</div>'+
+
+    // ---- Criar Task SC ----
+    '<div class="sec"><h4>📝 Criar Task no Tasks SC</h4>'+
+      existTask+
+      '<label>Título</label><input id="ct-title" value="'+esc(defTitle).slice(0,200)+'">'+
+      '<label>Código do cliente no Tasks SC</label><input id="ct-customer" placeholder="ex.: TFEHM600" >'+
+      '<div class="hint">Empresa Movidesk: <b>'+esc(t.client_organization||t.client_name||"—")+'</b>. Informe o código correspondente no Tasks SC.</div>'+
+      '<div class="row2">'+
+        '<div><label>Tags (IDs)</label><input id="ct-tags" value="000050"></div>'+
+        '<div><label>SLA (dias)</label><input id="ct-sla" type="number" value="1" min="0"></div>'+
+      '</div>'+
+      '<label>Descrição</label><textarea id="ct-desc">Ticket Movidesk #'+esc(t.protocol||t.id)+' — '+esc(t.subject||'')+'\nEmpresa: '+esc(t.client_organization||t.client_name||'')+'</textarea>'+
+      '<button class="btn prim" id="ct-btn">Criar Task SC</button>'+
+      '<div class="msg" id="ct-msg"></div>'+
+    '</div>'+
+
+    // ---- Comentar no Movidesk ----
+    '<div class="sec"><h4>💬 Comentar no Movidesk</h4>'+
+      '<div class="hint">Adiciona uma ação <b>pública</b> ao ticket (visível ao cliente).</div>'+
+      '<label>Comentário</label><textarea id="mc-text" placeholder="Escreva a resposta ao cliente…"></textarea>'+
+      '<div class="chkrow"><input type="checkbox" id="mc-res"> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">marcar como Resolvido após enviar</label></div>'+
+      '<button class="btn warn" id="mc-btn">Enviar comentário</button>'+
+      '<div class="msg" id="mc-msg"></div>'+
+    '</div>';
+  }
+
+  // Confirmação em 2 passos + chamada à edge function
+  function twoStep(btn, label, run){
+    var armed=false, orig=btn.textContent;
+    btn.addEventListener("click", async function(){
+      if(!armed){ armed=true; btn.textContent="Confirmar: "+label; btn.classList.add("ghost"); setTimeout(function(){ if(armed){armed=false;btn.textContent=orig;btn.classList.remove("ghost");} },4000); return; }
+      armed=false; btn.classList.remove("ghost"); btn.disabled=true; btn.textContent="Enviando…";
+      try{ await run(); }catch(e){ /* run trata msg */ }
+      btn.disabled=false; btn.textContent=orig;
+    });
+  }
+  function showMsg(id,ok,txt){ var m=document.getElementById(id); m.className="msg "+(ok?"ok":"er"); m.textContent=txt; }
+
+  function wireDrawer(t){
+    // Criar Task SC
+    twoStep(document.getElementById("ct-btn"),"criar Task", async function(){
+      var customer=(document.getElementById("ct-customer").value||"").trim();
+      if(!customer){ showMsg("ct-msg",false,"Informe o código do cliente no Tasks SC."); throw 0; }
+      var payload={
+        title:(document.getElementById("ct-title").value||"").trim().slice(0,200),
+        description:(document.getElementById("ct-desc").value||"").trim(),
+        customer:customer,
+        tags:(document.getElementById("ct-tags").value||"").split(",").map(function(s){return s.trim();}).filter(Boolean),
+        sla_days:parseInt(document.getElementById("ct-sla").value||"1",10),
+        movidesk_ticket_id:String(t.id),
+        movidesk_protocol:t.protocol||null
+      };
+      try{
+        var r=await window.TSC.createTaskSc(payload);
+        var d=(r&&r.data)||r;
+        var newId=(d&&(d.id||d.tasks_id))||"(criada)";
+        showMsg("ct-msg",true,"✓ Task SC criada: "+newId);
+        t.tasks_id=newId; t.tasks_created_at=new Date().toISOString();
+        render();
+      }catch(e){ showMsg("ct-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
+    });
+    // Comentar Movidesk
+    twoStep(document.getElementById("mc-btn"),"enviar", async function(){
+      var text=(document.getElementById("mc-text").value||"").trim();
+      if(!text){ showMsg("mc-msg",false,"Escreva o comentário."); throw 0; }
+      var payload={ ticket_id:String(t.id), text:text, set_resolved:document.getElementById("mc-res").checked };
+      try{
+        var r=await window.TSC.movideskComment(payload);
+        showMsg("mc-msg",true,"✓ Comentário enviado"+(payload.set_resolved?" e ticket marcado como Resolvido.":". Rode Recarregar para refletir."));
+        document.getElementById("mc-text").value="";
+      }catch(e){ showMsg("mc-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
+    });
+  }
+
+  // ---------- carregamento ----------
+  async function load(){
+    document.getElementById("board").innerHTML='<div class="center-load">Carregando tickets…</div>';
+    try{
+      await window.TSC.requireSession();
+      var u=await window.TSC.currentUser();
+      document.getElementById("who").textContent=u?u.email:"";
+      TICKETS=await window.TSC.getMovidesk();
+      TICKETS=TICKETS.filter(Boolean);
+      fillSelects(); renderKpis(); render();
+    }catch(e){
+      document.getElementById("board").innerHTML='<div class="center-load">Falha ao carregar: '+esc(e&&e.message?e.message:e)+'</div>';
+    }
+  }
+
+  // ---------- eventos ----------
+  ["q","fEmpresa","fUrg","fTask","fResolv"].forEach(function(id){
+    document.getElementById(id).addEventListener("input",render);
+    document.getElementById(id).addEventListener("change",render);
+  });
+  document.getElementById("dx").addEventListener("click",closeDrawer);
+  document.getElementById("ov").addEventListener("click",closeDrawer);
+  document.getElementById("btnReload").addEventListener("click",load);
+  document.getElementById("btnLogout").addEventListener("click",async function(){ await window.TSC.logout(); location.reload(); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeDrawer(); });
+
+  load();
+})();
+</script>
+</body>
+</html>

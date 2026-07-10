@@ -579,15 +579,9 @@
         if(loaded) return; loaded=true;
         var dl=document.getElementById("motlist"), h=document.getElementById("mc-mothint");
         try{
-          var r=await window.TSC.movideskReasons(); var d=(r&&r.data)||r||{};
-          var res=d.resolved||[], all=d.all||[];
-          var use=res.length?res:all;
-          if(dl) dl.innerHTML=use.map(function(x){ return '<option value="'+esc(x.reason)+'">'+esc(x.reason)+' ('+x.count+')</option>'; }).join("");
-          if(h){
-            if(res.length) h.textContent="Motivos válidos para \""+(d.resolved_status||"Resolvido")+"\": "+res.length+". Escolha um da lista.";
-            else if(all.length) h.innerHTML='⚠️ Não achei motivos usados no status <b>'+esc(d.resolved_status||"Resolvido")+'</b>. Os '+all.length+' motivos listados são de outros status (Fechado/Cancelado) e podem não ser aceitos ao Resolver. Confirme no seu Movidesk o motivo correto para Resolvido.';
-            else h.textContent="Nenhum motivo encontrado — digite o texto exato de um motivo do seu Movidesk.";
-          }
+          var list=await window.TSC.reasons(); // lista oficial cadastrada
+          if(dl) dl.innerHTML=(list||[]).map(function(rn){ return '<option value="'+esc(rn)+'">'+esc(rn)+'</option>'; }).join("");
+          if(h) h.textContent=(list&&list.length)?("Motivos (Fato gerador do atendimento): "+list.length+". Escolha um da lista."):"Nenhum motivo cadastrado — digite o texto exato do seu Movidesk.";
         }catch(e){ loaded=false; if(h) h.textContent="Não consegui buscar motivos: "+(e&&e.message?e.message:e)+". Digite o motivo manualmente."; }
       }
       if(res&&row) res.addEventListener("change",function(){ row.style.display=res.checked?"block":"none"; if(res.checked){ if(mot) mot.focus(); loadReasons(); } });

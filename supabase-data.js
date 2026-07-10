@@ -208,6 +208,13 @@
   async function movideskTicket(ticketId)    { return await callFn("movidesk-ticket", { ticket_id: String(ticketId) }); }
   // Descobre os motivos (justification) válidos a partir de tickets resolvidos. Ver movidesk-reasons.
   async function movideskReasons()           { return await callFn("movidesk-reasons", {}); }
+  // Lista oficial de motivos de encerramento (cadastrada na tabela movidesk_reasons).
+  async function reasons() {
+    await requireSession();
+    const r = await sb.from("movidesk_reasons").select("reason,ord").order("ord");
+    if (r.error) throw r.error;
+    return (r.data || []).map(function (x) { return x.reason; });
+  }
   // Seed de clientes (código Tasks SC ↔ nome) para o dropdown de criação de Task.
   async function seedClients() {
     await requireSession();
@@ -326,7 +333,7 @@
     searchEmails: searchEmails, getEmailById: getEmailById, getDecisoesMap: getDecisoesMap,
     getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
-    movideskTicket: movideskTicket, movideskReasons: movideskReasons, seedClients: seedClients, consultants: consultants, tags: tags,
+    movideskTicket: movideskTicket, movideskReasons: movideskReasons, reasons: reasons, seedClients: seedClients, consultants: consultants, tags: tags,
     taskHistory: taskHistory, taskUpdate: taskUpdate,
     _config: { URL: SUPA_URL, ANON: SUPA_ANON, FN: FN_BASE },
   };

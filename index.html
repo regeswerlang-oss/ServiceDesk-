@@ -490,7 +490,7 @@
       '<div class="hint">Adiciona uma ação <b>pública</b> ao ticket (visível ao cliente).</div>'+
       '<label>Comentário</label><textarea id="mc-text" placeholder="Escreva a resposta ao cliente…"></textarea>'+
       '<div class="chkrow"><input type="checkbox" id="mc-res"> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">marcar como Resolvido após enviar</label></div>'+
-      '<div id="mc-motrow" style="display:none"><label>Motivo do encerramento (exigido pelo Movidesk)</label><input id="mc-motivo" list="motlist" placeholder="escolha ou digite o motivo cadastrado no Movidesk"><datalist id="motlist"></datalist><div class="hint" id="mc-mothint">O Movidesk exige um motivo válido ao resolver. Escolha um da lista (descoberta dos tickets já resolvidos) ou digite o texto exato.</div></div>'+
+      '<div id="mc-motrow" style="display:none"><label>Fato gerador do atendimento (exigido ao resolver)</label><input id="mc-motivo" list="motlist" placeholder="escolha o fato gerador"><datalist id="motlist"></datalist><div class="hint" id="mc-mothint">Exigido pelo Movidesk ao resolver. Escolha um item da lista.</div></div>'+
       '<button class="btn warn" id="mc-btn">Enviar comentário</button>'+
       '<div class="msg" id="mc-msg"></div>'+
     '</div>'+
@@ -591,9 +591,9 @@
       if(!text){ showMsg("mc-msg",false,"Escreva o comentário."); throw 0; }
       var resolved=document.getElementById("mc-res").checked;
       var motivo=(document.getElementById("mc-motivo")?document.getElementById("mc-motivo").value:"").trim();
-      if(resolved && !motivo){ showMsg("mc-msg",false,"Para resolver, informe o Motivo exato cadastrado no Movidesk."); throw 0; }
+      if(resolved && !motivo){ showMsg("mc-msg",false,"Para resolver, escolha o Fato gerador do atendimento."); throw 0; }
       if(resolved && motivo){ try{ localStorage.setItem("sdhub_motivo",motivo); }catch(e){} }
-      var payload={ ticket_id:String(t.id), text:text, set_resolved:resolved, justification:resolved?motivo:"" };
+      var payload={ ticket_id:String(t.id), text:text, set_resolved:resolved, fato_gerador:resolved?motivo:"" };
       try{
         var r=await window.TSC.movideskComment(payload);
         showMsg("mc-msg",true,"✓ Comentário enviado"+(payload.set_resolved?" e ticket marcado como Resolvido.":". Rode Recarregar para refletir."));

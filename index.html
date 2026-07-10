@@ -54,6 +54,7 @@
   .b-urg{background:#fdecec;color:#c0392b} .b-urg.med{background:#fff4e2;color:#b8730a} .b-urg.baixa{background:#eef7ee;color:#2f7d33}
   .b-age{background:#f0edf8;color:#5B2E91} .b-age.old{background:#fdecec;color:#c0392b}
   .b-task{background:#efe7fb;color:#7c3aed} .b-notask{background:#f2f2f4;color:#8a8698}
+  .b-arc{background:#fdf0e6;color:#b8631a}
   .b-act{background:#e7f1fd;color:#2563eb}
 
   /* drawer */
@@ -161,7 +162,9 @@
   function daysSince(iso){ if(!iso) return null; var d=new Date(iso); if(isNaN(d)) return null; return Math.floor((Date.now()-d.getTime())/86400000); }
   function fmtDate(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return iso; return d.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}); }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
-  function isActive(t){ var b=(t.base_status||""); return b!=="Resolved" && b!=="Closed" && b!=="Canceled" && String(t.is_archived)!=="1"; }
+  // "ativo" = status não-terminal (Novo/Em atendimento/Parado). O is_archived do
+  // sync não define isso: um ticket pode sumir da mesa e ainda estar aberto.
+  function isActive(t){ var b=(t.base_status||""); return b!=="Resolved" && b!=="Closed" && b!=="Canceled"; }
   function urgClass(u){ var s=(u||"").toLowerCase(); if(s.indexOf("alta")>=0||s.indexOf("1:")>=0||s.indexOf("crít")>=0) return ""; if(s.indexOf("méd")>=0||s.indexOf("med")>=0||s.indexOf("2:")>=0) return "med"; return "baixa"; }
 
   // ---------- filtros ----------
@@ -230,11 +233,12 @@
     var urgB= t.urgency?'<span class="badge b-urg '+urgClass(t.urgency)+'">'+esc(t.urgency)+'</span>':'';
     var taskB= t.tasks_id?'<span class="badge b-task">Task '+esc(t.tasks_id)+'</span>':'<span class="badge b-notask">sem Task</span>';
     var actB= t.last_action_count?'<span class="badge b-act">'+t.last_action_count+' ações</span>':'';
+    var arcB= String(t.is_archived)==="1"?'<span class="badge b-arc">arquivado</span>':'';
     return '<div class="tk" data-id="'+esc(t.id)+'" style="border-left-color:'+colColor(t.status)+'">'+
       '<div class="top"><span class="proto">#'+esc(t.protocol||t.id)+'</span></div>'+
       '<div class="subj">'+esc(t.subject||"(sem assunto)")+'</div>'+
       '<div class="org">🏢 '+esc(t.client_organization||t.client_name||"—")+'</div>'+
-      '<div class="meta">'+urgB+ageB+actB+taskB+'</div>'+
+      '<div class="meta">'+urgB+ageB+actB+arcB+taskB+'</div>'+
     '</div>';
   }
 

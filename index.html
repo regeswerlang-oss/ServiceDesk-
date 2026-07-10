@@ -322,6 +322,18 @@
     return out;
   }
 
+  // Histórico de mensagens públicas em TEXTO puro (para a ocorrência da Task).
+  function buildHistoryText(tk){
+    var pub=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted && a.type===2; });
+    pub.sort(function(a,b){ return String(a.createdDate||"").localeCompare(String(b.createdDate||"")); });
+    return pub.map(function(a){
+      var cb=a.createdBy||{}; var who=cb.businessName||cb.email||cb.id||"?";
+      var ts=(a.createdDate||"").slice(0,16).replace("T"," ");
+      var txt=(a.description||"").replace(/<[^>]+>/g," ").replace(/\s+\n/g,"\n").trim();
+      return "["+ts+"] "+who+":\n"+txt;
+    }).join("\n\n----------\n\n");
+  }
+
   function renderTimeline(tk){
     if(CUR) CUR._full=tk;   // guarda o ticket completo p/ montar a descrição
     var tl=document.getElementById("tl"); if(!tl) return;
@@ -361,6 +373,15 @@
   function bodyHtml(t){
     var age=daysSince(t.last_update);
     var existTask = t.tasks_id ? '<div class="exist">✓ Já existe Task SC vinculada: <b>'+esc(t.tasks_id)+'</b>'+(t.tasks_created_at?' ('+fmtDate(t.tasks_created_at)+')':'')+'</div>' : '';
+    var occBlock = t.tasks_id ? (
+      '<div style="border:1px solid #d9c8f4;border-radius:9px;padding:10px 12px;margin-bottom:12px;background:#faf7ff">'+
+        '<h4 style="margin:0 0 8px;font-size:13px;color:var(--roxo-esc)">➕ Adicionar ocorrência na Task '+esc(t.tasks_id)+'</h4>'+
+        '<textarea id="oc-text" placeholder="Texto da ocorrência a gravar no histórico da Task…"></textarea>'+
+        '<div class="chkrow"><input type="checkbox" id="oc-hist"> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">incluir mensagens públicas do Movidesk</label></div>'+
+        '<button class="btn ghost" id="oc-btn">Adicionar ocorrência</button>'+
+        '<div class="msg" id="oc-msg"></div>'+
+      '</div>'
+    ) : '';
     var defTitle = '['+(t.protocol||t.id)+'] '+(t.subject||'');
     return ''+
     '<div class="grid">'+
@@ -379,7 +400,7 @@
     '<div class="acts">'+
     // ---- Criar Task SC ----
     '<div class="sec"><h4>📝 Criar Task no Tasks SC</h4>'+
-      existTask+
+      existTask+occBlock+
       '<label>Título</label><input id="ct-title" value="'+esc(defTitle).slice(0,200)+'">'+
       '<label>Código do cliente no Tasks SC</label>'+
       '<input id="ct-customer" list="seedlist" placeholder="digite ou escolha (ex.: TFEHM600)" autocomplete="off">'+
@@ -460,7 +481,7 @@
         var d=(r&&r.data)||r;
         var newId=(d&&(d.id||d.tasks_id))||"(criada)";
         showMsg("ct-msg",true,"✓ Task SC criada: "+newId);
-        t.tasks_id=newId; t.tasks_created_at=new Date().toISOString();
+        t.tasks_id=newId; t.tasks_uuid=(d&&d.uuid)||t.tasks_uuid; t.tasks_created_at=new Date().toISOString();
         render();
       }catch(e){ showMsg("ct-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
     });
@@ -474,6 +495,22 @@
         showMsg("mc-msg",true,"✓ Comentário enviado"+(payload.set_resolved?" e ticket marcado como Resolvido.":". Rode Recarregar para refletir."));
         document.getElementById("mc-text").value="";
       }catch(e){ showMsg("mc-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
+    });
+    // Adicionar ocorrência na Task SC (quando já existe Task)
+    var ocb=document.getElementById("oc-btn");
+    if(ocb) twoStep(ocb,"Gravar esta ocorrência no histórico da Task SC?", async function(){
+      if(!t.tasks_uuid){ showMsg("oc-msg",false,"Sem o UUID da Task. Recarregue o painel e reabra o ticket para gravar a ocorrência."); throw 0; }
+      var texto=(document.getElementById("oc-text").value||"").trim();
+      if(document.getElementById("oc-hist").checked && t._full){
+        var h=buildHistoryText(t._full);
+        if(h) texto=(texto?texto+"\n\n":"")+"=== Mensagens públicas do Movidesk ===\n\n"+h;
+      }
+      if(!texto){ showMsg("oc-msg",false,"Escreva a ocorrência ou marque incluir as mensagens."); throw 0; }
+      try{
+        await window.TSC.tasksSc("add-history", { uuid_ticket:t.tasks_uuid, details:texto, type:"0" });
+        showMsg("oc-msg",true,"✓ Ocorrência gravada no histórico da Task "+t.tasks_id);
+        document.getElementById("oc-text").value="";
+      }catch(e){ showMsg("oc-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
     });
     // Classificar (IA)
     var clb=document.getElementById("cl-btn");

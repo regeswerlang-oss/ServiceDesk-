@@ -275,6 +275,11 @@
       var sug=suggestClient(t.client_organization||t.client_name||"");
       var inp=document.getElementById("ct-customer"), sh=document.getElementById("ct-sug");
       if(sug && inp && !inp.value){ inp.value=sug.code; if(sh) sh.innerHTML='✅ Sugerido: <b>'+esc(sug.code)+'</b> — '+esc(sug.name); }
+      // responsáveis do cliente (assigned_customer) conforme o código do cliente
+      if(inp){
+        loadClienteResp(inp.value.trim());
+        inp.addEventListener("change",function(){ loadClienteResp(inp.value.trim()); });
+      }
     }catch(e){}
     // consultores (Responsável) → select, com default marcado
     try{
@@ -304,6 +309,25 @@
     }catch(e){
       if(tl) tl.innerHTML='<div class="tl-load">Não foi possível carregar o histórico: '+esc(e&&e.message?e.message:e)+'<br><span style="font-size:11px">(requer o secret MOVIDESK_TOKEN no Supabase)</span></div>';
     }
+  }
+
+  // carrega os responsáveis do cliente (assigned_customer) via Tasks SC
+  var _respCache={};
+  async function loadClienteResp(customer){
+    var sel=document.getElementById("ct-cliente-resp"); if(!sel||!customer) return;
+    if(_respCache[customer]){ fillResp(sel,_respCache[customer]); return; }
+    sel.innerHTML='<option value="">carregando…</option>';
+    try{
+      var r=await window.TSC.tasksSc("assigned-users",{ customer:customer });
+      var list=(r&&r.data)||r||[];
+      _respCache[customer]=list; fillResp(sel,list);
+    }catch(e){ sel.innerHTML='<option value="">— (não foi possível listar) —</option>'; }
+  }
+  function fillResp(sel,list){
+    sel.innerHTML='<option value="">— (opcional) —</option>'+(list||[]).map(function(u){
+      var id=u.id||u.code||""; var nome=u.name||u.businessName||u.email||id;
+      return '<option value="'+esc(id)+'">'+esc(nome)+(u.email?" ("+esc(u.email)+")":"")+'</option>';
+    }).join("");
   }
 
   function norm(s){ return (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase(); }
@@ -474,6 +498,7 @@
       '<div class="hint" id="ct-sug">Empresa Movidesk: <b>'+esc(t.client_organization||t.client_name||"—")+'</b>.</div>'+
       '<div id="ct-contact"></div>'+
       '<label>Responsável (TOTVS SC)</label><select id="ct-user"><option value="">— selecione —</option></select>'+
+      '<label>Responsável do cliente</label><select id="ct-cliente-resp"><option value="">— (opcional) —</option></select>'+
       '<label>Tag</label><select id="ct-tags"><option value="000232">SERVICE DESK</option></select>'+
       '<div class="row2">'+
         '<div><label>Estimativa (h)</label><input id="ct-est" type="number" value="1" min="0" step="0.5"></div>'+
@@ -558,6 +583,7 @@
         description:descricao,
         customer:customer,
         user_assigned:(document.getElementById("ct-user").value||"").trim(),
+        assigned_customer:(document.getElementById("ct-cliente-resp")?document.getElementById("ct-cliente-resp").value:"").trim(),
         time_estimate:isNaN(est)?1:est,
         tags:(document.getElementById("ct-tags").value||"").split(",").map(function(s){return s.trim();}).filter(Boolean),
         sla_days:parseInt(document.getElementById("ct-sla").value||"1",10),

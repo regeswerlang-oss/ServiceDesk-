@@ -115,6 +115,7 @@
   .tlb table{border-collapse:collapse;max-width:100%;font-size:11px}
   .tlb td,.tlb th{border:1px solid #d9d2ea;padding:2px 5px}
   .tlb a{color:var(--nov)}
+  .cidimg{display:inline-block;padding:2px 8px;background:#f0edf8;color:#5B2E91;border-radius:4px;font-size:11px}
   .tlmore,.tluse{margin-top:8px;margin-right:8px;background:#f0edf8;color:var(--roxo);border:0;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer}
   .tluse{background:#e7f1fd;color:var(--nov)}
   .tlbar{position:sticky;top:0;background:#fff;padding:8px 0;font-size:11px;color:var(--mut);display:flex;flex-wrap:wrap;gap:6px;align-items:center;z-index:2;border-bottom:1px solid var(--linha);margin-bottom:4px}
@@ -437,7 +438,12 @@
           if(!allowed[tag]){ out+=ser(ch); continue; }
           var attrs=""; var ok=attrOk[tag]||{};
           for(var j=0;j<ch.attributes.length;j++){ var at=ch.attributes[j]; var n=at.name.toLowerCase(); if(ok[n]){ var v=at.value||""; if((n==="href"||n==="src")&&/^\s*(javascript:|data:text\/html)/i.test(v)) continue; attrs+=" "+n+'="'+String(v).replace(/"/g,"&quot;")+'"'; } }
-          if(tag==="br"||tag==="hr"||tag==="img"){ out+="<"+tag+attrs+">"; }
+          if(tag==="img"){
+            var isrc=ch.getAttribute("src")||"";
+            if(/^\s*cid:/i.test(isrc)){ out+='<span class="cidimg">🖼️ imagem embutida (ver no Movidesk)</span>'; }
+            else { out+="<img"+attrs+' referrerpolicy="no-referrer" loading="lazy">'; }
+          }
+          else if(tag==="br"||tag==="hr"){ out+="<"+tag+attrs+">"; }
           else { out+="<"+tag+attrs+">"+ser(ch)+"</"+tag+">"; }
         }
       }

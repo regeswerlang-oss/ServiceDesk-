@@ -90,6 +90,18 @@
   .msg.ok{background:#e7f7ee;color:#12703f;display:block}
   .msg.er{background:#fdecec;color:#c0392b;display:block}
   .chkrow{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12px;color:var(--txt)}
+  /* multi-select dropdown */
+  .msel{position:relative}
+  .msel-box{border:1px solid var(--linha);border-radius:8px;padding:7px 10px;font-size:13px;background:#fff;cursor:pointer;min-height:38px;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .msel-box .ph{color:var(--mut)}
+  .msel-chip{background:#efe7fb;color:#5B2E91;border-radius:12px;padding:2px 8px;font-size:11px;display:inline-flex;align-items:center;gap:5px}
+  .msel-chip .x{cursor:pointer;font-weight:700}
+  .msel-panel{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--linha);border-radius:8px;box-shadow:var(--shadow);max-height:240px;overflow:auto;z-index:20;display:none;padding:5px}
+  .msel-panel.open{display:block}
+  .msel-grp{font-size:10px;text-transform:uppercase;color:var(--mut);letter-spacing:.4px;padding:6px 8px 2px;font-weight:700}
+  .msel-opt{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:12px;cursor:pointer;border-radius:6px}
+  .msel-opt:hover{background:#f5f2fc}
+  .msel-opt input{width:14px;height:14px}
   .exist{background:#efe7fb;border:1px solid #d9c8f4;border-radius:8px;padding:8px 10px;font-size:12px;color:#5b2e91;margin-bottom:8px}
   .center-load{padding:60px;text-align:center;color:var(--mut);font-size:14px;width:100%}
   /* timeline */
@@ -331,18 +343,37 @@
     }).join("");
     fillObservers();
   }
-  // Observadores: combina consultores TOTVS SC + usuários do cliente (múltipla escolha).
+  // Observadores: dropdown com checkboxes + chips (TOTVS SC + usuários do cliente).
+  var OBS_SEL={}; // value -> nome
+  function obsValues(){ return Object.keys(OBS_SEL); }
+  function renderObsBox(){
+    var box=document.getElementById("ct-obs-box"); if(!box) return;
+    var vals=obsValues();
+    if(!vals.length){ box.innerHTML='<span class="ph">— selecione (opcional) —</span>'; return; }
+    box.innerHTML=vals.map(function(v){ return '<span class="msel-chip">'+esc(OBS_SEL[v])+'<span class="x" data-v="'+esc(v)+'">×</span></span>'; }).join("");
+    [].forEach.call(box.querySelectorAll(".x"),function(x){ x.addEventListener("click",function(ev){ ev.stopPropagation(); delete OBS_SEL[x.getAttribute("data-v")]; renderObsBox(); syncObsChecks(); }); });
+  }
+  function syncObsChecks(){
+    var panel=document.getElementById("ct-obs-panel"); if(!panel) return;
+    [].forEach.call(panel.querySelectorAll("input.obs-cb"),function(cb){ cb.checked=!!OBS_SEL[cb.value]; });
+  }
   function fillObservers(){
-    var sel=document.getElementById("ct-obs"); if(!sel) return;
+    var wrap=document.getElementById("ct-obs"); if(!wrap) return;
+    var box=document.getElementById("ct-obs-box"), panel=document.getElementById("ct-obs-panel");
     var cust=(document.getElementById("ct-customer")||{}).value||"";
     var cli=_respCache[cust]||[];
-    var keep=[].slice.call(sel.selectedOptions||[]).map(function(o){return o.value;});
-    var html="";
-    if(CONS&&CONS.length) html+='<optgroup label="TOTVS SC">'+CONS.map(function(c){ return '<option value="'+esc(c.code)+'">'+esc(c.name)+' ('+esc(c.code)+')</option>'; }).join("")+'</optgroup>';
-    if(cli.length) html+='<optgroup label="Cliente">'+cli.map(function(u){ var id=u.id||u.code||""; var nm=u.name||u.businessName||u.email||id; return '<option value="'+esc(id)+'">'+esc(nm)+(u.email?" ("+esc(u.email)+")":"")+'</option>'; }).join("")+'</optgroup>';
-    sel.innerHTML=html;
-    [].forEach.call(sel.options,function(o){ if(keep.indexOf(o.value)>=0) o.selected=true; });
+    function grp(label,arr){ if(!arr.length) return ""; return '<div class="msel-grp">'+label+'</div>'+arr.map(function(o){ return '<label class="msel-opt"><input type="checkbox" class="obs-cb" value="'+esc(o.id)+'"'+(OBS_SEL[o.id]?' checked':'')+'> '+esc(o.name)+'</label>'; }).join(""); }
+    var totvs=(CONS||[]).map(function(c){ return { id:c.code, name:c.name+" ("+c.code+")" }; });
+    var clis=(cli||[]).map(function(u){ var id=u.id||u.code||""; var nm=u.name||u.businessName||u.email||id; return { id:id, name:nm+(u.email?" ("+u.email+")":"") }; });
+    panel.innerHTML=grp("TOTVS SC",totvs)+grp("Cliente",clis);
+    [].forEach.call(panel.querySelectorAll("input.obs-cb"),function(cb){
+      cb.addEventListener("change",function(){ if(cb.checked){ OBS_SEL[cb.value]=cb.parentNode.textContent.trim(); } else { delete OBS_SEL[cb.value]; } renderObsBox(); });
+    });
+    if(box && !box._wired){ box._wired=true; box.addEventListener("click",function(ev){ ev.stopPropagation(); panel.classList.toggle("open"); }); }
+    renderObsBox();
   }
+  // fecha o panel ao clicar fora
+  document.addEventListener("click",function(ev){ var p=document.getElementById("ct-obs-panel"); var w=document.getElementById("ct-obs"); if(p&&w&&!w.contains(ev.target)) p.classList.remove("open"); });
 
   function norm(s){ return (s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase(); }
   var SKIP={"de":1,"da":1,"do":1,"dos":1,"das":1,"ltda":1,"sa":1,"me":1,"epp":1,"eireli":1,"e":1,"industria":1,"comercio":1,"com":1,"ind":1};
@@ -513,7 +544,8 @@
       '<div id="ct-contact"></div>'+
       '<label>Responsável (TOTVS SC)</label><select id="ct-user"><option value="">— selecione —</option></select>'+
       '<label>Responsável do cliente</label><select id="ct-cliente-resp"><option value="">— (opcional) —</option></select>'+
-      '<label>Observadores (múltiplos)</label><select id="ct-obs" multiple size="6" style="min-height:130px;width:100%"></select><div class="hint">Segure Cmd/Ctrl para marcar vários. Lista traz TOTVS SC e usuários do cliente.</div>'+
+      '<label>Observadores (múltiplos)</label>'+
+      '<div class="msel" id="ct-obs"><div class="msel-box" id="ct-obs-box"><span class="ph">— selecione (opcional) —</span></div><div class="msel-panel" id="ct-obs-panel"></div></div>'+
       '<label>Tag</label><select id="ct-tags"><option value="000232">SERVICE DESK</option></select>'+
       '<div class="row2">'+
         '<div><label>Estimativa (h)</label><input id="ct-est" type="number" value="1" min="0" step="0.5"></div>'+
@@ -528,6 +560,12 @@
     // ---- Comentar no Movidesk ----
     '<div class="sec"><h4>💬 Comentar no Movidesk</h4>'+
       '<div class="hint">Adiciona uma ação <b>pública</b> ao ticket (visível ao cliente).</div>'+
+      '<div class="tlbar" style="border:0;padding:4px 0;position:static">inserir: '+
+        '<button class="tlbtn ghost" id="ins-task">Nº Task</button>'+
+        '<button class="tlbtn ghost" id="ins-link">Link</button>'+
+        '<button class="tlbtn ghost" id="ins-resp">Resp. cliente</button>'+
+        '<button class="tlbtn ghost" id="ins-obs">Observadores</button>'+
+      '</div>'+
       '<label>Comentário</label><textarea id="mc-text" placeholder="Escreva a resposta ao cliente…"></textarea>'+
       '<div class="chkrow"><input type="checkbox" id="mc-res"> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">marcar como Resolvido após enviar</label></div>'+
       '<div id="mc-motrow" style="display:none">'+
@@ -668,6 +706,13 @@
         document.getElementById("oc-text").value="";
       }catch(e){ showMsg("oc-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
     });
+    // Inserções rápidas no comentário Movidesk
+    function insMc(txt){ var ta=document.getElementById("mc-text"); if(!ta||!txt) return; ta.value=(ta.value?ta.value.replace(/\s+$/,"")+"\n":"")+txt; ta.focus(); }
+    var SHARE_BASE="https://tspace.tscst.com.br/#/ticket/";
+    var it=document.getElementById("ins-task"); if(it) it.addEventListener("click",function(){ if(!t.tasks_id){ alert("Este ticket ainda não tem Task SC vinculada."); return; } insMc("Task SC #"+t.tasks_id); });
+    var il=document.getElementById("ins-link"); if(il) il.addEventListener("click",function(){ if(!t.tasks_uuid && !t.tasks_id){ alert("Sem Task vinculada para gerar link."); return; } insMc("Acompanhe: "+SHARE_BASE+(t.tasks_uuid||t.tasks_id)); });
+    var ir=document.getElementById("ins-resp"); if(ir) ir.addEventListener("click",function(){ var s=document.getElementById("ct-cliente-resp"); var nm=(s&&s.value&&s.selectedOptions[0])?s.selectedOptions[0].textContent.trim():""; if(!nm){ alert("Selecione o Responsável do cliente na área de criação da Task."); return; } insMc("Responsável (cliente): "+nm); });
+    var io=document.getElementById("ins-obs"); if(io) io.addEventListener("click",function(){ var nomes=obsValues().map(function(v){return OBS_SEL[v];}); if(!nomes.length){ alert("Selecione observadores na área de criação da Task."); return; } insMc("Observadores: "+nomes.join(", ")); });
     // Classificar (IA)
     var clb=document.getElementById("cl-btn");
     if(clb) clb.addEventListener("click", async function(){

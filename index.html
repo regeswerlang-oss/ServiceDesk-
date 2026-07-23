@@ -401,7 +401,9 @@
       var cb=a.createdBy||{};
       var who=cb.businessName||cb.email||cb.id||"?";
       var ts=(a.createdDate||"").slice(0,19).replace("T"," ");
-      var body=a.htmlDescription||("<p>"+esc(a.description||"").replace(/\n/g,"<br>")+"</p>");
+      // Usa o TEXTO da mensagem (não o htmlDescription cru do e-mail), que o Tasks SC rejeita.
+      var plain=(a.description||"").replace(/<[^>]+>/g," ").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+      var body="<p>"+esc(plain).replace(/\n/g,"<br>")+"</p>";
       out+='<div style="border:1px solid #E7E0F3;border-radius:6px;padding:10px 12px;margin:8px 0;font-family:Arial,sans-serif;font-size:13px">'+
            '<div style="color:#6E2DD8;font-weight:bold;margin-bottom:4px">'+esc(who)+' · '+esc(originLabel(a.origin))+' · '+esc(ts)+'</div>'+
            '<div style="color:#2a2140">'+body+'</div></div>';

@@ -141,6 +141,13 @@
     <option value="sem">Sem Task SC</option>
     <option value="com">Com Task SC</option>
   </select>
+  <select id="fUpd">
+    <option value="">Atualização: todas</option>
+    <option value="hoje">Hoje</option>
+    <option value="ontem">Ontem</option>
+    <option value="semana">Esta semana</option>
+    <option value="restante">O restante</option>
+  </select>
   <label class="chk"><input type="checkbox" id="fResolv"> mostrar resolvidos/arquivados</label>
   <span class="count" id="count"></span>
 </div>
@@ -185,8 +192,23 @@
   function isActive(t){ var b=(t.base_status||""); return b!=="Resolved" && b!=="Closed" && b!=="Canceled"; }
   function urgClass(u){ var s=(u||"").toLowerCase(); if(s.indexOf("alta")>=0||s.indexOf("1:")>=0||s.indexOf("crít")>=0) return ""; if(s.indexOf("méd")>=0||s.indexOf("med")>=0||s.indexOf("2:")>=0) return "med"; return "baixa"; }
 
+  // bucket de atualização por last_update (novos movimentos)
+  function updBucket(t){
+    var d=t.last_update; if(!d) return "restante";
+    var dt=new Date(d); if(isNaN(dt)) return "restante";
+    var now=new Date();
+    function ymd(x){ return x.getFullYear()+"-"+x.getMonth()+"-"+x.getDate(); }
+    var yest=new Date(now.getTime()-86400000);
+    var ds=ymd(dt);
+    if(ds===ymd(now)) return "hoje";
+    if(ds===ymd(yest)) return "ontem";
+    if((now.getTime()-dt.getTime())/86400000<=7) return "semana";
+    return "restante";
+  }
+
   // ---------- filtros ----------
   function passesFilters(t){
+    var fu=document.getElementById("fUpd").value; if(fu && updBucket(t)!==fu) return false;
     var showRes = document.getElementById("fResolv").checked;
     if(!showRes && !isActive(t)) return false;
     var q=(document.getElementById("q").value||"").trim().toLowerCase();
@@ -316,11 +338,14 @@
       }
     }catch(e){}
     var tl=document.getElementById("tl");
+    // Histórico agora vem do Supabase (sync horário) — sem fetch ao vivo.
+    if(t.actions && t.actions.length){ renderTimeline(t); return; }
+    // Fallback: se por algum motivo não houver histórico salvo, busca ao vivo.
     try{
       var r=await window.TSC.movideskTicket(t.id);
       renderTimeline((r&&r.data)||r);
     }catch(e){
-      if(tl) tl.innerHTML='<div class="tl-load">Não foi possível carregar o histórico: '+esc(e&&e.message?e.message:e)+'<br><span style="font-size:11px">(requer o secret MOVIDESK_TOKEN no Supabase)</span></div>';
+      if(tl) tl.innerHTML='<div class="tl-load">Sem histórico salvo para este ticket ainda (aguarde o próximo sync).</div>';
     }
   }
 
@@ -390,25 +415,24 @@
   }
 
   // Monta o HTML do histórico de mensagens PÚBLICAS (type==2) p/ a descrição da Task.
+  // Descrição em HTML MÍNIMO: um único <p> com <br> (o Tasks SC/Tspace só renderiza esse formato simples).
   function buildHistoryHtml(tk){
     var pub=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted && a.type===2; });
     pub.sort(function(a,b){ return String(a.createdDate||"").localeCompare(String(b.createdDate||"")); });
     var ct=contactOf(tk);
-    var ctHtml=(ct.email||ct.phone)?('<p style="font-family:Arial,sans-serif;font-size:13px;color:#2a2140;margin:0 0 10px"><b>Contato:</b> '+esc(ct.name||"")+(ct.email?' &lt;'+esc(ct.email)+'&gt;':"")+(ct.phone?' · Tel: '+esc(ct.phone):"")+'</p>'):"";
-    if(!pub.length) return ctHtml+'<p style="font-style:italic;color:#6B6B85">(sem mensagens públicas registradas neste ticket)</p>';
-    var out=ctHtml+'<h3 style="color:#1B1554;font-family:Arial,sans-serif;font-size:14px;margin:16px 0 12px;padding:8px 12px;background:#FAFAFB;border-left:4px solid #ED2C7B;border-radius:4px">💬 Histórico de mensagens públicas ('+pub.length+')</h3>';
-    pub.forEach(function(a,i){
-      var cb=a.createdBy||{};
-      var who=cb.businessName||cb.email||cb.id||"?";
-      var ts=(a.createdDate||"").slice(0,19).replace("T"," ");
-      // Usa o TEXTO da mensagem (não o htmlDescription cru do e-mail), que o Tasks SC rejeita.
-      var plain=(a.description||"").replace(/<[^>]+>/g," ").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
-      var body="<p>"+esc(plain).replace(/\n/g,"<br>")+"</p>";
-      out+='<div style="border:1px solid #E7E0F3;border-radius:6px;padding:10px 12px;margin:8px 0;font-family:Arial,sans-serif;font-size:13px">'+
-           '<div style="color:#6E2DD8;font-weight:bold;margin-bottom:4px">'+esc(who)+' · '+esc(originLabel(a.origin))+' · '+esc(ts)+'</div>'+
-           '<div style="color:#2a2140">'+body+'</div></div>';
-    });
-    return out;
+    var lines=[];
+    if(ct.email||ct.phone) lines.push("Contato: "+(ct.name||"")+(ct.email?" <"+ct.email+">":"")+(ct.phone?" · Tel: "+ct.phone:""));
+    if(!pub.length){ lines.push("(sem mensagens públicas registradas neste ticket)"); }
+    else {
+      lines.push("=== Histórico de mensagens públicas ("+pub.length+") ===");
+      pub.forEach(function(a){
+        var cb=a.createdBy||{}; var who=cb.businessName||cb.email||cb.id||"?";
+        var ts=(a.createdDate||"").slice(0,19).replace("T"," ");
+        var plain=(a.description||"").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+        lines.push(""); lines.push("["+ts+"] "+who+":"); lines.push(plain);
+      });
+    }
+    return "<p>"+esc(lines.join("\n")).replace(/\n/g,"<br>")+"</p>";
   }
 
   // Histórico de mensagens públicas em TEXTO puro (para a ocorrência da Task).
@@ -432,6 +456,9 @@
     if(!name) name=cl.businessName;
     if(!email) email=cl.email;
     if(!phone) phone=cl.phone||cl.phoneNumber;
+    // dados salvos pelo sync (payload snake_case)
+    if(!name) name=tk&&tk.client_name;
+    if(!email) email=tk&&tk.client_email;
     if(!email){ // fallback: procura e-mail de um cliente nas ações
       var acts=(tk&&tk.actions)||[];
       for(var i=0;i<acts.length;i++){ var cb=acts[i].createdBy||{}; if(cb.email && (cb.personType===1||cb.personType===2||!cb.personType)){ email=cb.email; if(!name)name=cb.businessName; break; } }
@@ -470,7 +497,7 @@
     acts.sort(function(a,b){ return String(b.createdDate||"").localeCompare(String(a.createdDate||"")); });
     var cnt=document.getElementById("tl-count"); if(cnt) cnt.textContent="("+acts.length+")";
     if(!acts.length){ tl.innerHTML='<div class="tl-load">Sem mensagens neste ticket.</div>'; return; }
-    var owner=String((tk.owner||{}).id||"");
+    var owner=String((tk.owner||{}).id||tk.owner_id||"");
     var bar='<div class="tlbar">Marque as mensagens e adicione as selecionadas: '+
       '<button class="tlbtn" id="sel-desc">→ Descrição</button>'+
       '<button class="tlbtn occ" id="sel-occ">→ Ocorrência</button>'+
@@ -744,7 +771,7 @@
   }
 
   // ---------- eventos ----------
-  ["q","fEmpresa","fUrg","fTask","fResolv"].forEach(function(id){
+  ["q","fEmpresa","fUrg","fTask","fUpd","fResolv"].forEach(function(id){
     document.getElementById(id).addEventListener("input",render);
     document.getElementById(id).addEventListener("change",render);
   });

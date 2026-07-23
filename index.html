@@ -110,7 +110,11 @@
   .tlitem{border:1px solid var(--linha);border-radius:10px;padding:10px 12px;background:#fbfaff}
   .tlh{font-size:12px;color:var(--roxo-esc);margin-bottom:6px}
   .tlh b{color:var(--txt)} .tlh i{color:var(--mut);font-style:normal}
-  .tlb{font-size:12.5px;color:var(--txt);line-height:1.5;white-space:normal;word-break:break-word}
+  .tlb{font-size:12.5px;color:var(--txt);line-height:1.5;white-space:normal;word-break:break-word;overflow-x:auto}
+  .tlb img{max-width:100%;height:auto}
+  .tlb table{border-collapse:collapse;max-width:100%;font-size:11px}
+  .tlb td,.tlb th{border:1px solid #d9d2ea;padding:2px 5px}
+  .tlb a{color:var(--nov)}
   .tlmore,.tluse{margin-top:8px;margin-right:8px;background:#f0edf8;color:var(--roxo);border:0;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer}
   .tluse{background:#e7f1fd;color:var(--nov)}
   .tlbar{position:sticky;top:0;background:#fff;padding:8px 0;font-size:11px;color:var(--mut);display:flex;flex-wrap:wrap;gap:6px;align-items:center;z-index:2;border-bottom:1px solid var(--linha);margin-bottom:4px}
@@ -338,14 +342,16 @@
       }
     }catch(e){}
     var tl=document.getElementById("tl");
-    // Histórico agora vem do Supabase (sync horário) — sem fetch ao vivo.
-    if(t.actions && t.actions.length){ renderTimeline(t); return; }
-    // Fallback: se por algum motivo não houver histórico salvo, busca ao vivo.
+    // 1) Render instantâneo do histórico salvo no Supabase (texto, sem imagens).
+    var temSalvo = t.actions && t.actions.length;
+    if(temSalvo) renderTimeline(t);
+    else if(tl) tl.innerHTML='<div class="tl-load">Carregando histórico com imagens…</div>';
+    // 2) Enriquece ao vivo (1 ticket) para trazer o HTML com IMAGENS (timeline + descrição da Task).
     try{
       var r=await window.TSC.movideskTicket(t.id);
       renderTimeline((r&&r.data)||r);
     }catch(e){
-      if(tl) tl.innerHTML='<div class="tl-load">Sem histórico salvo para este ticket ainda (aguarde o próximo sync).</div>';
+      if(!temSalvo && tl) tl.innerHTML='<div class="tl-load">Não foi possível carregar o histórico ao vivo: '+esc(e&&e.message?e.message:e)+'</div>';
     }
   }
 
@@ -414,25 +420,48 @@
     return bs>0?best:null;
   }
 
-  // Monta o HTML do histórico de mensagens PÚBLICAS (type==2) p/ a descrição da Task.
-  // Descrição em HTML MÍNIMO: um único <p> com <br> (o Tasks SC/Tspace só renderiza esse formato simples).
+  // Sanitiza HTML mantendo estrutura + imagens; remove script/style/on*/atributos perigosos.
+  function sanitizeHtml(html){
+    if(!html) return "";
+    var allowed={p:1,br:1,b:1,strong:1,i:1,em:1,u:1,a:1,img:1,table:1,thead:1,tbody:1,tr:1,td:1,th:1,ul:1,ol:1,li:1,div:1,span:1,h1:1,h2:1,h3:1,h4:1,blockquote:1,hr:1,font:1,pre:1};
+    var attrOk={a:{href:1},img:{src:1,alt:1,width:1,height:1},td:{colspan:1,rowspan:1},th:{colspan:1,rowspan:1},table:{border:1}};
+    var tmp=document.createElement("div"); tmp.innerHTML=html;
+    function ser(node){
+      var out="";
+      for(var i=0;i<node.childNodes.length;i++){
+        var ch=node.childNodes[i];
+        if(ch.nodeType===3){ out+=esc(ch.nodeValue); }
+        else if(ch.nodeType===1){
+          var tag=ch.tagName.toLowerCase();
+          if(tag==="script"||tag==="style"||tag==="head"||tag==="meta"||tag==="link"||tag==="title") continue;
+          if(!allowed[tag]){ out+=ser(ch); continue; }
+          var attrs=""; var ok=attrOk[tag]||{};
+          for(var j=0;j<ch.attributes.length;j++){ var at=ch.attributes[j]; var n=at.name.toLowerCase(); if(ok[n]){ var v=at.value||""; if((n==="href"||n==="src")&&/^\s*(javascript:|data:text\/html)/i.test(v)) continue; attrs+=" "+n+'="'+String(v).replace(/"/g,"&quot;")+'"'; } }
+          if(tag==="br"||tag==="hr"||tag==="img"){ out+="<"+tag+attrs+">"; }
+          else { out+="<"+tag+attrs+">"+ser(ch)+"</"+tag+">"; }
+        }
+      }
+      return out;
+    }
+    return ser(tmp);
+  }
+
+  // HTML do histórico de mensagens PÚBLICAS (type==2) p/ a descrição da Task — COM imagens.
   function buildHistoryHtml(tk){
     var pub=((tk&&tk.actions)||[]).filter(function(a){ return !a.isDeleted && a.type===2; });
     pub.sort(function(a,b){ return String(a.createdDate||"").localeCompare(String(b.createdDate||"")); });
     var ct=contactOf(tk);
-    var lines=[];
-    if(ct.email||ct.phone) lines.push("Contato: "+(ct.name||"")+(ct.email?" <"+ct.email+">":"")+(ct.phone?" · Tel: "+ct.phone:""));
-    if(!pub.length){ lines.push("(sem mensagens públicas registradas neste ticket)"); }
-    else {
-      lines.push("=== Histórico de mensagens públicas ("+pub.length+") ===");
-      pub.forEach(function(a){
-        var cb=a.createdBy||{}; var who=cb.businessName||cb.email||cb.id||"?";
-        var ts=(a.createdDate||"").slice(0,19).replace("T"," ");
-        var plain=(a.description||"").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim();
-        lines.push(""); lines.push("["+ts+"] "+who+":"); lines.push(plain);
-      });
-    }
-    return "<p>"+esc(lines.join("\n")).replace(/\n/g,"<br>")+"</p>";
+    var out="";
+    if(ct.email||ct.phone) out+="<p><b>Contato:</b> "+esc(ct.name||"")+(ct.email?" &lt;"+esc(ct.email)+"&gt;":"")+(ct.phone?" · Tel: "+esc(ct.phone):"")+"</p>";
+    if(!pub.length) return out+"<p><i>(sem mensagens públicas registradas neste ticket)</i></p>";
+    out+="<p><b>Histórico de mensagens públicas ("+pub.length+")</b></p>";
+    pub.forEach(function(a){
+      var cb=a.createdBy||{}; var who=cb.businessName||cb.email||cb.id||"?";
+      var ts=(a.createdDate||"").slice(0,19).replace("T"," ");
+      var body=a.htmlDescription?sanitizeHtml(a.htmlDescription):("<p>"+esc((a.description||"").trim()).replace(/\n/g,"<br>")+"</p>");
+      out+="<p><b>["+esc(ts)+"] "+esc(who)+":</b></p>"+body+"<hr>";
+    });
+    return out;
   }
 
   // Histórico de mensagens públicas em TEXTO puro (para a ocorrência da Task).
@@ -508,12 +537,14 @@
       var mine=(String(cb.id||"")===owner)?' · <span style="color:var(--cli)">🆔 você</span>':'';
       var desc=(a.description||"").trim();
       var ts=(a.createdDate||"—").slice(0,19).replace("T"," ");
-      var formatted="["+ts+"] "+who+":\n"+desc;   // vai para descrição/ocorrência
-      var full=desc.length>900;
+      var formatted="["+ts+"] "+who+":\n"+desc;   // vai para descrição/ocorrência (texto)
+      var hasHtml=!!a.htmlDescription;
+      var full=!hasHtml && desc.length>900;
       var shown=full?desc.slice(0,900)+"…":desc;
+      var bodyHtml=hasHtml ? sanitizeHtml(a.htmlDescription) : esc(shown).replace(/\n/g,"<br>");
       return '<div class="tlitem">'+
         '<div class="tlh"><label class="tlpick"><input type="checkbox" class="tlsel" data-full="'+encodeURIComponent(formatted)+'"> </label>'+typeEmoji(a.type)+' <b>'+esc(who)+'</b> · <i>'+esc(originLabel(a.origin))+'</i> · '+esc(ts)+mine+'</div>'+
-        '<div class="tlb" id="tlb-'+i+'">'+esc(shown).replace(/\n/g,"<br>")+'</div>'+
+        '<div class="tlb" id="tlb-'+i+'">'+bodyHtml+'</div>'+
         (full?'<button class="tlmore" data-i="'+i+'" data-full="'+encodeURIComponent(desc)+'">Ver mensagem completa</button>':'')+
         '<button class="tluse" data-full="'+encodeURIComponent(formatted)+'">↩︎ usar na ocorrência</button>'+
       '</div>';

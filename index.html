@@ -599,6 +599,7 @@
         customer:customer,
         user_assigned:(document.getElementById("ct-user").value||"").trim(),
         assigned_customer:(document.getElementById("ct-cliente-resp")?document.getElementById("ct-cliente-resp").value:"").trim(),
+        observer:(function(){ var s=document.getElementById("ct-obs"); return s?[].slice.call(s.selectedOptions).map(function(o){return o.value;}).filter(Boolean):[]; })(),
         time_estimate:isNaN(est)?1:est,
         tags:(document.getElementById("ct-tags").value||"").split(",").map(function(s){return s.trim();}).filter(Boolean),
         sla_days:parseInt(document.getElementById("ct-sla").value||"1",10),

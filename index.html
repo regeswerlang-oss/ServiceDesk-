@@ -116,6 +116,9 @@
   .tlb td,.tlb th{border:1px solid #d9d2ea;padding:2px 5px}
   .tlb a{color:var(--nov)}
   .cidimg{display:inline-block;padding:2px 8px;background:#f0edf8;color:#5B2E91;border-radius:4px;font-size:11px}
+  .qr-item{display:flex;align-items:flex-start;gap:7px;padding:4px 6px;font-size:12px;border-radius:6px;cursor:pointer}
+  .qr-item:hover{background:#f5f2fc}
+  .qr-item input{margin-top:2px}
   .tlmore,.tluse{margin-top:8px;margin-right:8px;background:#f0edf8;color:var(--roxo);border:0;border-radius:7px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer}
   .tluse{background:#e7f1fd;color:var(--nov)}
   .tlbar{position:sticky;top:0;background:#fff;padding:8px 0;font-size:11px;color:var(--mut);display:flex;flex-wrap:wrap;gap:6px;align-items:center;z-index:2;border-bottom:1px solid var(--linha);margin-bottom:4px}
@@ -632,6 +635,16 @@
         '<button class="tlbtn ghost" id="ins-resp">Resp. cliente</button>'+
         '<button class="tlbtn ghost" id="ins-obs">Observadores</button>'+
       '</div>'+
+      '<div class="qr">'+
+        '<div style="font-size:11px;color:var(--mut);margin-bottom:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">Frases rápidas '+
+          '<button class="tlbtn" id="qr-add">+ adicionar selecionadas</button>'+
+          '<button class="tlbtn ghost" id="qr-editbtn">editar</button></div>'+
+        '<div id="qr-list"></div>'+
+        '<div id="qr-edit" style="display:none;margin-top:6px">'+
+          '<textarea id="qr-text" placeholder="Uma frase por linha…" style="width:100%;min-height:100px"></textarea>'+
+          '<button class="btn ghost" id="qr-save" style="margin-top:6px">Salvar frases</button>'+
+        '</div>'+
+      '</div>'+
       '<label>Comentário</label><textarea id="mc-text" placeholder="Escreva a resposta ao cliente…"></textarea>'+
       '<div class="chkrow"><input type="checkbox" id="mc-res"> <label style="margin:0;text-transform:none;font-size:12px;color:var(--txt)">marcar como Resolvido após enviar</label></div>'+
       '<div id="mc-motrow" style="display:none">'+
@@ -772,6 +785,26 @@
         document.getElementById("oc-text").value="";
       }catch(e){ showMsg("oc-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
     });
+    // Frases rápidas (pré-preenchidas, editáveis e salvas em localStorage)
+    (function(){
+      var DEF=["Ticket foi encerrado aqui e pode ser acessado via portal do cliente.","Gestor de demandas entrará em contato."];
+      function load(){ try{ var s=localStorage.getItem("sdhub_qr"); if(s){ var a=JSON.parse(s); if(Array.isArray(a)) return a; } }catch(e){} return DEF.slice(); }
+      function save(arr){ try{ localStorage.setItem("sdhub_qr", JSON.stringify(arr)); }catch(e){} }
+      var list=load(); var el=document.getElementById("qr-list"); if(!el) return;
+      function render(){ el.innerHTML=list.length?list.map(function(f,i){ return '<label class="qr-item"><input type="checkbox" class="qr-cb" data-i="'+i+'"><span>'+esc(f)+'</span></label>'; }).join(""):'<div class="hint">Nenhuma frase — clique em editar para adicionar.</div>'; }
+      render();
+      var add=document.getElementById("qr-add"); if(add) add.addEventListener("click",function(){
+        var sel=[].slice.call(el.querySelectorAll(".qr-cb:checked")).map(function(c){ return list[+c.getAttribute("data-i")]; });
+        if(!sel.length){ alert("Marque ao menos uma frase."); return; }
+        var ta=document.getElementById("mc-text"); if(ta){ ta.value=(ta.value?ta.value.replace(/\s+$/,"")+"\n":"")+sel.join("\n"); ta.focus(); }
+        [].forEach.call(el.querySelectorAll(".qr-cb"),function(c){ c.checked=false; });
+      });
+      var eb=document.getElementById("qr-editbtn"), ed=document.getElementById("qr-edit"), tx=document.getElementById("qr-text");
+      if(eb) eb.addEventListener("click",function(){ if(ed.style.display==="none"||!ed.style.display){ tx.value=list.join("\n"); ed.style.display="block"; } else ed.style.display="none"; });
+      var sv=document.getElementById("qr-save"); if(sv) sv.addEventListener("click",function(){
+        list=(tx.value||"").split("\n").map(function(s){return s.trim();}).filter(Boolean); save(list); render(); ed.style.display="none";
+      });
+    })();
     // Inserções rápidas no comentário Movidesk
     function insMc(txt){ var ta=document.getElementById("mc-text"); if(!ta||!txt) return; ta.value=(ta.value?ta.value.replace(/\s+$/,"")+"\n":"")+txt; ta.focus(); }
     var SHARE_BASE="https://tspace.tscst.com.br/#/ticket/";

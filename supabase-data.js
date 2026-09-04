@@ -58,9 +58,34 @@
   async function getSession() { await init(); const r = await sb.auth.getSession(); return r.data.session; }
   async function token()      { const s = await getSession(); return s ? s.access_token : null; }
   async function currentUser(){ const s = await getSession(); return s ? s.user : null; }
+  // Login UNIFICADO: valida contra o mesmo cadastro do Cockpit (cockpit.usuarios_login,
+  // hash scrypt) via Edge Function cockpit-login, que emite uma sessão Supabase real
+  // (magiclink admin → verifyOtp). Assim a mesma senha do Cockpit vale aqui.
+  // Fallback: contas legadas que só existem no Supabase Auth (login direto).
   async function login(email, senha) {
     await init();
-    const r = await sb.auth.signInWithPassword({ email: email, password: senha });
+    const em = (email || "").trim().toLowerCase();
+    let resp = null, j = {}, netFail = false;
+    try {
+      resp = await fetch(FN_BASE + "/cockpit-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": SUPA_ANON, "Authorization": "Bearer " + SUPA_ANON },
+        body: JSON.stringify({ email: em, password: senha }),
+      });
+      j = await resp.json().catch(function () { return {}; });
+    } catch (e) { netFail = true; }
+    if (!netFail && resp) {
+      if (resp.ok && j.token_hash) {
+        const v = await sb.auth.verifyOtp({ token_hash: j.token_hash, type: j.type || "magiclink" });
+        if (v.error) throw v.error;
+        _custCache = null;
+        return v.data;
+      }
+      // usuário existe no Cockpit mas senha/estado inválido → erro direto (sem fallback)
+      if (resp.status === 401 || resp.status === 403) throw new Error(j.error || "Usuário ou senha inválidos");
+      // 404 (não é do Cockpit) ou 409 (conta só-Supabase) → cai no login Supabase abaixo
+    }
+    const r = await sb.auth.signInWithPassword({ email: em, password: senha });
     if (r.error) throw r.error;
     _custCache = null;
     return r.data;

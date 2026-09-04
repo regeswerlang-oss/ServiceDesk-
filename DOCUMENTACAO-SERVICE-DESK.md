@@ -127,10 +127,23 @@ A chave está em `totvs.app_config` (`MOVIDESK_SYNC_KEY`). **Não** versionar es
 
 ---
 
+## 3.1. Autenticação (login unificado com o Cockpit)
+
+O SDHub usa **a mesma credencial do Cockpit**. O modal de login chama a Edge Function
+`cockpit-login`, que valida a senha contra `cockpit.usuarios_login` (hash **scrypt**:
+`scryptSync(senha, saltHex, 64)`, formato `scrypt$salt$hash`). Dando certo, ela garante
+um usuário‑espelho em `auth.users`, define o perfil como `interno` (mapeamento **todos =
+interno**) e emite uma **sessão Supabase** (magiclink admin → `verifyOtp` no cliente). O
+resto do painel (RLS + Edge Functions) segue usando o JWT do Supabase, sem mudanças.
+
+Contas que só existem no Supabase Auth (sem senha local no Cockpit) caem no **fallback**
+`signInWithPassword`. Trocar a senha no Cockpit passa a valer também no SDHub.
+
 ## 4. Edge Functions (Supabase)
 
 | Função | O que faz | Segredos |
 |---|---|---|
+| `cockpit-login` | **Login unificado**: valida e‑mail+senha contra `cockpit.usuarios_login` (scrypt), garante espelho em `auth.users`, define perfil `interno` e emite sessão Supabase (magiclink→verifyOtp) | service_role |
 | `movidesk-sync` | Sync horário da mesa → `movidesk_tickets` (com histórico) | MOVIDESK_TOKEN, OWNER_ID, SYNC_KEY (app_config) |
 | `movidesk-ticket` | GET do ticket completo ao vivo (traz `htmlDescription`/imagens) | MOVIDESK_TOKEN |
 | `movidesk-comment` | Ação pública + resolver (status+justificativa+Fato gerador) | MOVIDESK_TOKEN, OWNER_ID |

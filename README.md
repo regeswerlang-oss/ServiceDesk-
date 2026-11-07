@@ -52,3 +52,12 @@ por nome da empresa. Dá para digitar um código livre também.
 - O seed de clientes tem os 22 do CSV. Para cobrir todos os ~3.456 clientes Tasks SC,
   evoluir para busca ao vivo no endpoint `/customer` (futuro).
 - O board depende do sync que popula `movidesk_tickets` (hoje manual).
+
+## Visual (2026-11-06)
+
+Camada de design no fim do `<style>` do `index.html` (comentário "CAMADA DE
+DESIGN"): identidade TOTVS (header Petróleo com grafismo hexagonal e filete
+Blue → Purple, logo e fonte TOTVS-Bold em `brand/`), Inter, KPIs com acento
+lateral, colunas do kanban em cartão, tickets com hover, drawer com transição e
+cantos arredondados, campos com foco Blue. Só CSS — as regras anteriores
+continuam no arquivo e são sobrepostas pelas variáveis redefinidas.

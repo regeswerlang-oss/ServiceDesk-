@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SDHub · Service Desk (Movidesk) — TOTVS SC</title>
 <!-- Camada de dados Supabase (login, leitura, edge functions). Deve vir antes de tudo. -->
+<link rel="preconnect" href="https://rsms.me/">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 <script src="supabase-data.js"></script>
 <style>
   :root{
@@ -127,6 +129,87 @@
   .tlbtn.ghost{background:#f0edf8;color:var(--roxo)}
   .tlpick{display:inline-flex;align-items:center;margin-right:6px}
   .tlpick input{width:15px;height:15px}
+  /* ════════════════════════════════════════════════════════════════════════
+     CAMADA DE DESIGN (06/11/2026) — identidade TOTVS (Petróleo / Blue /
+     Purple), Inter, cards 14px, KPIs com acento, kanban mais fluido, drawer
+     com transição suave. Só CSS: redefine as variáveis e sobrepõe as regras
+     acima. Nada de JS/HTML muda.
+     ════════════════════════════════════════════════════════════════════════ */
+  @font-face{font-family:'TOTVS';src:url('brand/TOTVS-Bold.ttf') format('truetype');font-weight:700;font-display:swap}
+  :root{
+    --roxo:#A44DFF; --roxo2:#00DBFF; --roxo-esc:#002233;
+    --bg:#F3F6F8; --card:#ffffff; --linha:#e3eaf0; --txt:#002233; --mut:#6e8594;
+    --shadow:0 1px 2px rgba(0,34,51,.04),0 6px 18px -12px rgba(0,34,51,.18);
+    --blue:#00DBFF; --petroleo:#002233; --grad:linear-gradient(135deg,#00DBFF,#A44DFF);
+  }
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-feature-settings:'cv11','ss01','tnum';-webkit-font-smoothing:antialiased}
+  *{scrollbar-width:thin;scrollbar-color:rgba(0,34,51,.18) transparent}
+  *::-webkit-scrollbar{height:8px;width:8px} *::-webkit-scrollbar-thumb{background:rgba(0,34,51,.18);border-radius:8px}
+  ::selection{background:rgba(0,219,255,.35)}
+
+  header{position:sticky;top:0;z-index:50;background-color:var(--petroleo);
+    background-image:radial-gradient(900px 400px at 110% -20%,rgba(164,77,255,.35),transparent 60%),
+      radial-gradient(700px 400px at -10% 120%,rgba(0,219,255,.25),transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64' viewBox='0 0 56 64'%3E%3Cpath d='M28 2 52 16v32L28 62 4 48V16z' fill='none' stroke='rgba(255,255,255,0.06)' stroke-width='1.2'/%3E%3C/svg%3E");
+    background-size:auto,auto,56px 64px;padding:14px 22px}
+  header::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--grad)}
+  header .brand{display:grid;grid-template-columns:auto auto;grid-template-rows:auto auto;column-gap:14px;align-items:center;font-family:'TOTVS','Inter',sans-serif;font-size:18px;letter-spacing:-.2px}
+  header .brand::before{content:'';grid-row:1/3;width:92px;height:28px;background:url('brand/logo-totvs-branco.svg') no-repeat left center/contain;border-right:1px solid rgba(255,255,255,.15);padding-right:14px;margin-right:2px}
+  header .brand small{grid-column:2}
+  header .brand small{font-family:'Inter',sans-serif;color:var(--blue);letter-spacing:.14em;font-size:10px;text-transform:uppercase;opacity:1}
+  header button{border-radius:10px;transition:background .15s,transform .12s} header button:active{transform:scale(.97)}
+  header .who{opacity:.75}
+
+  .kpis{padding:18px 22px 6px}
+  .kpi{border-radius:14px;border:1px solid var(--linha);position:relative;overflow:hidden;padding:14px 16px 12px;transition:transform .15s,box-shadow .15s}
+  .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--kpi-acc,var(--petroleo))}
+  .kpi:hover{transform:translateY(-1px);box-shadow:0 10px 24px -14px rgba(0,34,51,.35)}
+  .kpi .n{font-family:'TOTVS','Inter',sans-serif;font-size:26px;color:var(--petroleo)}
+  .kpi .l{letter-spacing:.1em;font-weight:600}
+  .kpi.acc-nov{--kpi-acc:#00DBFF} .kpi.acc-esp{--kpi-acc:#FFB800} .kpi.acc-res{--kpi-acc:#0FA37F} .kpi.acc-task{--kpi-acc:#A44DFF}
+  .kpi.acc-nov .n{color:#0097b3} .kpi.acc-esp .n{color:#c98a00} .kpi.acc-res .n{color:#0FA37F} .kpi.acc-task .n{color:#A44DFF}
+
+  .toolbar{padding:12px 22px 10px}
+  .toolbar input,.toolbar select{border-radius:10px;transition:border-color .15s,box-shadow .15s}
+  .toolbar input:focus,.toolbar select:focus,.sec input:focus,.sec textarea:focus,.sec select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,219,255,.25)}
+  .toolbar input[type=checkbox],.chkrow input,.msel-opt input,.tlpick input,.qr-item input{accent-color:#00b8d9}
+
+  .board{animation:sd-fade .3s ease-out both;padding-top:8px}
+  @keyframes sd-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .col{background:rgba(255,255,255,.55);border:1px solid var(--linha);border-radius:16px;padding:10px;min-width:300px}
+  .col h3{color:var(--petroleo);margin:2px 0 10px;padding:0 4px}
+  .col h3 .dot{width:10px;height:10px;border-radius:3px}
+  .col h3 .qt{background:#fff;border:1px solid var(--linha);color:var(--petroleo)}
+  .tk{border-radius:12px;border:1px solid var(--linha);border-left-width:4px;transition:transform .15s,box-shadow .15s,border-color .15s}
+  .tk:hover{transform:translateY(-2px);box-shadow:0 12px 28px -16px rgba(0,34,51,.4);border-color:var(--blue);border-left-color:inherit}
+  .tk .org{color:#0097b3}
+  .tk .proto{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#A44DFF}
+  .badge{border-radius:6px;letter-spacing:.02em}
+  .b-age{background:#e6f7fb;color:#0097b3} .b-task{background:#f1e8ff;color:#7a2fd6} .b-act{background:#e6f7fb;color:#006b80}
+
+  .ov{background:rgba(0,34,51,.5);backdrop-filter:blur(2px)}
+  .drawer{transition:transform .28s cubic-bezier(.2,.8,.2,1);border-radius:18px 0 0 18px;box-shadow:-16px 0 50px -20px rgba(0,34,51,.5)}
+  .drawer .dh{background:var(--petroleo);background-image:radial-gradient(600px 300px at 110% -20%,rgba(164,77,255,.4),transparent 60%);border-radius:18px 0 0 0;position:relative}
+  .drawer .dh::after{content:'';position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--grad)}
+  .drawer .dh .subj{font-family:'TOTVS','Inter',sans-serif;font-weight:700}
+  .drawer .dh .proto{color:var(--blue);letter-spacing:.08em}
+  .sec h4{color:var(--petroleo);font-family:'TOTVS','Inter',sans-serif}
+  .sec input,.sec textarea,.sec select{border-radius:10px}
+  .sec input[type=checkbox]{width:auto}
+  .chkrow{align-items:center}
+  .btn{border-radius:10px;transition:background .15s,transform .12s,box-shadow .15s} .btn:active:not(:disabled){transform:scale(.98)}
+  .btn.prim{background:var(--blue);color:var(--petroleo);box-shadow:0 4px 12px -6px rgba(0,219,255,.7)} .btn.prim:hover{background:#19e0ff}
+  .btn.ghost{background:#e6f7fb;color:#006b80}
+  .tlbtn{background:var(--petroleo)} .tlbtn.ghost{background:#e6f7fb;color:#006b80}
+  .tluse,.tlmore{border-radius:8px} .tlmore{background:#e6f7fb;color:#006b80}
+  .tlitem{border-radius:12px;background:#f8fbfc}
+  .tlh{color:var(--petroleo)}
+  .msel-box,.msel-panel{border-radius:10px} .msel-chip{background:#e6f7fb;color:#006b80}
+  .msel-opt:hover,.qr-item:hover{background:#f0f8fb}
+  .exist{background:#e6f7fb;border-color:#bfe9f3;color:#006b80}
+  .cidimg{background:#e6f7fb;color:#006b80}
+  @media(prefers-reduced-motion:reduce){.board{animation:none}.tk,.kpi,.drawer{transition:none}}
 </style>
 </head>
 <body>

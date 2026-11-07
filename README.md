@@ -61,3 +61,11 @@ Blue → Purple, logo e fonte TOTVS-Bold em `brand/`), Inter, KPIs com acento
 lateral, colunas do kanban em cartão, tickets com hover, drawer com transição e
 cantos arredondados, campos com foco Blue. Só CSS — as regras anteriores
 continuam no arquivo e são sobrepostas pelas variáveis redefinidas.
+
+## Layout (tsc-ui, 07/11/2026)
+
+O SDHub usa o layout unificado dos dashboards TOTVS SC: `ui/tsc-ui.css`
+(design system escuro), `ui/tsc-pages.css` (bloco `servicedesk`) e
+`ui/tsc-shell.js` (trilho lateral com a navegação entre hub, Cockpit Único,
+Gestor de Projetos e SDHub). Os três arquivos são cópias da pasta `ui/` do
+repo DashboardIndex (fonte canônica) — ao mudar, altere lá e copie para cá.

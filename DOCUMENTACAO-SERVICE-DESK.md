@@ -108,6 +108,11 @@ Comportamento:
   editáveis e salvas (localStorage do navegador).
 - **Marcar como Resolvido:** exige **Status de encerramento** + **Fato gerador do atendimento**
   (campo personalizado 33760). O painel manda `status` + `justification` nativa + o custom field.
+  O **Fato gerador** é uma **lista fechada** (combo) com os itens de `totvs.movidesk_reasons`
+  (os mesmos do campo 33760 no Movidesk: Conhecimento do cliente, Manutenção do ambiente do
+  cliente, Não conformidade da implantação/de customização/do produto, Necessidade de
+  implantação de melhoria, Processo do cliente). Texto livre (ex.: "Repasse") dava HTTP 400
+  `There is no match for the Custom field item value entered` — corrigido em 14/11/2026.
 
 ### 2.6. Classificação (IA)
 

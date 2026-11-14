@@ -754,7 +754,7 @@
       '<div class="chkrow"><input type="checkbox" id="mc-res"> <label style="margin:0;text-transform:none;font-size:12px;color:var(--tsc-t1)">marcar como Resolvido após enviar</label></div>'+
       '<div id="mc-motrow" style="display:none">'+
         '<label>Status de encerramento</label><select id="mc-status"></select>'+
-        '<label>Fato gerador do atendimento</label><input id="mc-motivo" list="motlist" placeholder="escolha o fato gerador"><datalist id="motlist"></datalist>'+
+        '<label>Fato gerador do atendimento</label><select id="mc-motivo"><option value="">— selecione —</option></select>'+
         '<div class="hint" id="mc-mothint">Escolha o status de encerramento (traz a justificativa correta) e o fato gerador.</div>'+
       '</div>'+
       '<button class="btn warn" id="mc-btn">Enviar comentário</button>'+
@@ -839,18 +839,28 @@
       }catch(e){ showMsg("ct-msg",false,"Erro: "+(e&&e.message?e.message:e)); throw e; }
     });
     // Comentar Movidesk
+    // Fato gerador valido (preenchido por loadReasons; usado tambem no envio).
+    var REASONS=[];
     // mostra/esconde o campo motivo conforme "Resolvido" e lembra o último valor
     (function(){
       var res=document.getElementById("mc-res"), row=document.getElementById("mc-motrow"), mot=document.getElementById("mc-motivo");
-      if(mot){ try{ mot.value=localStorage.getItem("sdhub_motivo")||""; }catch(e){} }
+      // Fato gerador = LISTA FECHADA (totvs.movidesk_reasons = itens do campo
+      // personalizado 33760 do Movidesk). Texto livre dava HTTP 400 "There is no
+      // match for the Custom field item value entered" (ex.: "Repasse").
       var loaded=false;
       async function loadReasons(){
         if(loaded) return; loaded=true;
-        var dl=document.getElementById("motlist"), h=document.getElementById("mc-mothint");
+        var h=document.getElementById("mc-mothint");
         try{
           var list=await window.TSC.reasons();           // fato gerador (custom field)
           var cs=await window.TSC.closeStatuses();        // status de encerramento + justificativa
-          if(dl) dl.innerHTML=(list||[]).map(function(rn){ return '<option value="'+esc(rn)+'">'+esc(rn)+'</option>'; }).join("");
+          REASONS=(list||[]).slice();
+          if(mot){
+            mot.innerHTML='<option value="">— selecione —</option>'+REASONS.map(function(rn){ return '<option value="'+esc(rn)+'">'+esc(rn)+'</option>'; }).join("");
+            var ult=""; try{ ult=localStorage.getItem("sdhub_motivo")||""; }catch(e){}
+            if(ult && REASONS.indexOf(ult)>=0) mot.value=ult;   // so reaproveita valor valido
+            else { try{ localStorage.removeItem("sdhub_motivo"); }catch(e){} }
+          }
           var ss=document.getElementById("mc-status");
           if(ss) ss.innerHTML=(cs||[]).map(function(s){ return '<option value="'+esc(s.status)+'" data-just="'+esc(s.justification||"")+'">'+esc(s.status)+'</option>'; }).join("");
           if(h) h.textContent="Escolha o status de encerramento e o fato gerador.";
@@ -868,6 +878,7 @@
       var closeJust=(ss&&ss.selectedOptions&&ss.selectedOptions[0])?ss.selectedOptions[0].getAttribute("data-just"):"";
       if(resolved && !closeStatus){ showMsg("mc-msg",false,"Escolha o status de encerramento."); throw 0; }
       if(resolved && !motivo){ showMsg("mc-msg",false,"Escolha o Fato gerador do atendimento."); throw 0; }
+      if(resolved && REASONS.length && REASONS.indexOf(motivo)<0){ showMsg("mc-msg",false,"Fato gerador inválido para o Movidesk. Escolha um item da lista."); throw 0; }
       if(resolved && motivo){ try{ localStorage.setItem("sdhub_motivo",motivo); }catch(e){} }
       var payload={ ticket_id:String(t.id), text:text, set_resolved:resolved, status:resolved?closeStatus:"", justification:resolved?closeJust:"", fato_gerador:resolved?motivo:"" };
       try{

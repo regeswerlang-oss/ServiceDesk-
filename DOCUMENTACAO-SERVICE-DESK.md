@@ -93,6 +93,13 @@ Comportamento:
 > localiza a Task real por *cliente + título* (maior id) e faz um **update** desses campos
 > logo após criar — tudo num clique só.
 
+> **Status na criação (14/11/2026, `create-task-sc` v7):** o Tasks SC deixou de aplicar o
+> status padrão quando o POST manda `status: ""` e passou a recusar com HTTP 400
+> `ZN6_SITUAC - REGNOIS - Não existe registro relacionado a chave informada no alias ZN0`.
+> A função agora envia `status: "001"` / `status_description: "Novo"`; se a API recusar o
+> 001 pelo mesmo motivo, tenta uma vez com `""` (comportamento antigo). A recusa não cria
+> Task, então o retry não duplica.
+
 ### 2.5. Comentar no Movidesk
 
 - Ação **pública** (visível ao cliente), assinada pelo agente (`createdBy.id` = `MOVIDESK_OWNER_ID`).

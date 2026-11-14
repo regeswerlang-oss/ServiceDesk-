@@ -148,8 +148,20 @@ um usuário‑espelho em `auth.users`, define o perfil como `interno` (mapeament
 interno**) e emite uma **sessão Supabase** (magiclink admin → `verifyOtp` no cliente). O
 resto do painel (RLS + Edge Functions) segue usando o JWT do Supabase, sem mudanças.
 
-Contas que só existem no Supabase Auth (sem senha local no Cockpit) caem no **fallback**
-`signInWithPassword`. Trocar a senha no Cockpit passa a valer também no SDHub.
+Trocar a senha no Cockpit passa a valer também no SDHub.
+
+**Ajustes de 14/11/2026 (validação "mesma autenticação do Cockpit"):**
+
+- **Sem senha paralela:** o fallback `signInWithPassword` foi removido. Quem não está no
+  `cockpit.usuarios_login` (ou está sem senha scrypt) não entra — mensagem pede o acesso ao admin.
+- **Perfil respeitado (`cockpit-login` v3):** admin, gestor, comum, consultoria e dev viram
+  `interno` em `totvs.profiles`; **cliente e leitor viram `cliente`** (nunca são promovidos a
+  interno; se estavam `interno` por engano, são rebaixados). Antes (v2) todo login virava interno.
+  O SDHub é **de uso interno**: cliente/leitor recebem "O SDHub é de uso interno da TOTVS SC" no
+  login e também na tela, se já tinham sessão aberta.
+- **Inativar corta na hora:** `totvs.is_interno()` (sql/0002) passa a exigir, para quem existe no
+  Cockpit, `ativo = true` e perfil fora de cliente/leitor. Vale para todas as políticas do schema
+  `totvs` (SDHub, DashboardIndex…), inclusive para sessões já abertas.
 
 ### 3.2. Gestor de Demandas e "Ver como" (14/11/2026)
 
@@ -167,7 +179,7 @@ Contas que só existem no Supabase Auth (sem senha local no Cockpit) caem no **f
 
 | Função | O que faz | Segredos |
 |---|---|---|
-| `cockpit-login` | **Login unificado**: valida e‑mail+senha contra `cockpit.usuarios_login` (scrypt), garante espelho em `auth.users`, define perfil `interno` e emite sessão Supabase (magiclink→verifyOtp) | service_role |
+| `cockpit-login` | **Login unificado** (v3): valida e‑mail+senha contra `cockpit.usuarios_login` (scrypt), garante espelho em `auth.users`, define o role pelo perfil do Cockpit (internos → `interno`; cliente/leitor → `cliente`) e emite sessão Supabase (magiclink→verifyOtp) | service_role |
 | `movidesk-sync` | Sync horário da mesa → `movidesk_tickets` (com histórico) | MOVIDESK_TOKEN, OWNER_ID, SYNC_KEY (app_config) |
 | `movidesk-ticket` | GET do ticket completo ao vivo (traz `htmlDescription`/imagens) | MOVIDESK_TOKEN |
 | `movidesk-comment` | Ação pública + resolver (status+justificativa+Fato gerador) | MOVIDESK_TOKEN, OWNER_ID |

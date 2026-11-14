@@ -89,3 +89,10 @@ Mesmo conceito do Cockpit Único:
   `totvs.sd_recorte()`, `totvs.sd_contexto(p_ver_como)` e as políticas
   `movidesk_select`/`movidesk_write`.
 - Tickets sem `customer_code` não aparecem para gestor.
+
+## Autenticação = Cockpit (validado 14/11/2026)
+
+Login só pelo cadastro do Cockpit (`cockpit-login` v3, sem senha paralela do Supabase);
+uso interno (cliente/leitor barrados); inativar/rebaixar no Cockpit corta o acesso na hora
+(`totvs.is_interno()`, `sql/0002_interno_segue_cockpit.sql`). Detalhes na
+`DOCUMENTACAO-SERVICE-DESK.md` §3.1.

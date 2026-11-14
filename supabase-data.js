@@ -61,11 +61,12 @@
   // Login UNIFICADO: valida contra o mesmo cadastro do Cockpit (cockpit.usuarios_login,
   // hash scrypt) via Edge Function cockpit-login, que emite uma sessão Supabase real
   // (magiclink admin → verifyOtp). Assim a mesma senha do Cockpit vale aqui.
-  // Fallback: contas legadas que só existem no Supabase Auth (login direto).
+  // 14/11/2026: SEM fallback para senha propria do Supabase (todo acesso passa pelo
+  // cadastro do Cockpit) e o SDHub e de USO INTERNO — perfis cliente/leitor sao barrados.
   async function login(email, senha) {
     await init();
     const em = (email || "").trim().toLowerCase();
-    let resp = null, j = {}, netFail = false;
+    let resp, j = {};
     try {
       resp = await fetch(FN_BASE + "/cockpit-login", {
         method: "POST",
@@ -73,22 +74,19 @@
         body: JSON.stringify({ email: em, password: senha }),
       });
       j = await resp.json().catch(function () { return {}; });
-    } catch (e) { netFail = true; }
-    if (!netFail && resp) {
-      if (resp.ok && j.token_hash) {
-        const v = await sb.auth.verifyOtp({ token_hash: j.token_hash, type: j.type || "magiclink" });
-        if (v.error) throw v.error;
-        _custCache = null;
-        return v.data;
-      }
-      // usuário existe no Cockpit mas senha/estado inválido → erro direto (sem fallback)
-      if (resp.status === 401 || resp.status === 403) throw new Error(j.error || "Usuário ou senha inválidos");
-      // 404 (não é do Cockpit) ou 409 (conta só-Supabase) → cai no login Supabase abaixo
+    } catch (e) {
+      throw new Error("Sem conexão com o serviço de login. Tente de novo.");
     }
-    const r = await sb.auth.signInWithPassword({ email: em, password: senha });
-    if (r.error) throw r.error;
-    _custCache = null;
-    return r.data;
+    if (resp.ok && j.token_hash) {
+      if (j.interno === false) throw new Error("O SDHub é de uso interno da TOTVS SC.");
+      const v = await sb.auth.verifyOtp({ token_hash: j.token_hash, type: j.type || "magiclink" });
+      if (v.error) throw v.error;
+      _custCache = null;
+      return v.data;
+    }
+    if (resp.status === 404) throw new Error("Usuário não cadastrado no Cockpit. Peça o acesso ao administrador.");
+    if (resp.status === 409) throw new Error("Conta sem senha no Cockpit. Peça ao administrador para definir a senha.");
+    throw new Error(j.error || "Usuário ou senha inválidos");
   }
   async function logout() { await init(); await sb.auth.signOut(); _custCache = null; }
 

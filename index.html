@@ -993,6 +993,15 @@
       var vc=""; try{ vc=localStorage.getItem(VC_KEY)||""; }catch(e){}
       var ctx={}; try{ ctx=await window.TSC.contexto(vc); }catch(e){ ctx={}; }
       CTX=ctx;
+      // Uso interno: cliente/leitor do Cockpit nao usam o SDHub (vale tambem para
+      // sessao aberta antes da mudanca de perfil).
+      if(ctx.perfil==="cliente"||ctx.perfil==="leitor"){
+        document.getElementById("who").textContent=ctx.nome||"";
+        document.getElementById("kpis").innerHTML="";
+        document.getElementById("board").innerHTML='<div class="center-load">O SDHub é de uso interno da TOTVS SC. Seu perfil no Cockpit ('+esc(pl(ctx.perfil))+') não tem acesso. <button type="button" id="btnSairInt" style="margin-left:8px">Sair</button></div>';
+        document.getElementById("btnSairInt").addEventListener("click",async function(){ await window.TSC.logout(); location.reload(); });
+        return;
+      }
       TICKETS=await window.TSC.getMovidesk();
       TICKETS=TICKETS.filter(Boolean);
       // "Ver como" (so admin): aplica na tela o recorte do usuario escolhido.

@@ -348,11 +348,24 @@
   // ---------- movidesk (≈ Movidesk/sdhub/state.db tickets) ----------
   async function getMovidesk(opts) {
     await requireSession();
-    let q = sb.from("movidesk_tickets").select("payload");
+    // RLS (sql/0001) ja recorta: gestor de demandas so recebe a carteira dele.
+    let q = sb.from("movidesk_tickets").select("payload,customer_code");
     if (opts && opts.customer) q = q.eq("customer_code", opts.customer);
     const r = await q;
     if (r.error) throw r.error;
-    return r.data.map(function (x) { return x.payload; });
+    return r.data.map(function (x) {
+      if (x.payload) x.payload._customer = x.customer_code || null;
+      return x.payload;
+    });
+  }
+
+  // Contexto de acesso (sql/0001): {email,nome,perfil,admin,recorte,ver_como,opcoes}.
+  // recorte null = todos os clientes. ver_como/opcoes so vem para ADMIN.
+  async function contexto(verComo) {
+    await requireSession();
+    const r = await sb.rpc("sd_contexto", { p_ver_como: verComo || null });
+    if (r.error) throw r.error;
+    return r.data || {};
   }
 
   window.TSC = {
@@ -363,7 +376,7 @@
     classify: classify, gmailDraft: gmailDraft, notebooklm: notebooklm,
     getEmails: getEmails, getSnapshots: getSnapshots,
     searchEmails: searchEmails, getEmailById: getEmailById, getDecisoesMap: getDecisoesMap,
-    getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk,
+    getDecisions: getDecisions, saveDecision: saveDecision, getMovidesk: getMovidesk, contexto: contexto,
     createTaskSc: createTaskSc, movideskComment: movideskComment,
     movideskTicket: movideskTicket, movideskReasons: movideskReasons, reasons: reasons, closeStatuses: closeStatuses, seedClients: seedClients, consultants: consultants, tags: tags,
     taskHistory: taskHistory, taskUpdate: taskUpdate,

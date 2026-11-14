@@ -69,3 +69,23 @@ O SDHub usa o layout unificado dos dashboards TOTVS SC: `ui/tsc-ui.css`
 `ui/tsc-shell.js` (trilho lateral com a navegação entre hub, Cockpit Único,
 Gestor de Projetos e SDHub). Os três arquivos são cópias da pasta `ui/` do
 repo DashboardIndex (fonte canônica) — ao mudar, altere lá e copie para cá.
+
+## Gestor de Demandas + "Ver como" (14/11/2026)
+
+Mesmo conceito do Cockpit Único:
+
+- **Gestor de Demandas** (perfil `gestor` em `cockpit.usuarios_login`) vê só os
+  tickets dos clientes da **carteira** dele (`cockpit.carteira_demandas`). O
+  recorte é aplicado no **banco** (RLS de `totvs.movidesk_tickets`), não só na
+  tela. Os demais perfis internos continuam vendo tudo. O cabeçalho mostra o
+  selo "carteira: N clientes" para o gestor.
+- **Ver como** (só administrador): combo no cabeçalho para ver o SDHub com o
+  recorte de outro usuário (gestores primeiro). Faixa âmbar com "Voltar para
+  mim"; **somente visualização** — os botões de ação (Criar/Alterar Task,
+  Ocorrência, Comentar no Movidesk) ficam bloqueados. A escolha fica no
+  `localStorage` (`sdhub_ver_como`) e sai no logout.
+- SQL: `sql/0001_recorte_gestor_ver_como.sql` (aplicado no Supabase em
+  14/11/2026) — funções `totvs.cockpit_email()`, `totvs.sd_recorte_de()`,
+  `totvs.sd_recorte()`, `totvs.sd_contexto(p_ver_como)` e as políticas
+  `movidesk_select`/`movidesk_write`.
+- Tickets sem `customer_code` não aparecem para gestor.

@@ -209,6 +209,16 @@
   .msel-opt:hover,.qr-item:hover{background:rgba(95,186,221,0.14)}
   .exist{background:rgba(87,201,228,0.14);border-color:rgba(91,198,224,0.38);color:#51e2ff}
   .cidimg{background:rgba(87,201,228,0.14);color:#51e2ff}
+  /* Gestor de Demandas + "Ver como" (14/11/2026) */
+  .vercomo{display:flex;align-items:center;gap:6px;margin-right:10px}
+  .vercomo label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut)}
+  .vercomo select{background:var(--tsc-s2,#11141d);color:var(--tsc-t1,#dfe7ff);border:1px solid #323a52;border-radius:8px;padding:5px 8px;font-size:13px;max-width:220px}
+  .vercomo select.on{border-color:rgba(245,158,11,.6);background:rgba(245,158,11,.12);color:#fde7b0}
+  .vc-faixa{position:sticky;top:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:8px 22px;background:#2a1f06;border-bottom:1px solid rgba(245,158,11,.4);color:#fde7b0;font-size:13px}
+  .vc-faixa b{font-weight:700} .vc-faixa .pf{background:rgba(245,158,11,.2);border-radius:999px;padding:2px 8px;font-size:12px}
+  .vc-faixa .sub{font-size:12px;opacity:.8} .vc-faixa button{margin-left:auto;border:1px solid rgba(245,158,11,.6);background:transparent;color:#fde7b0;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer}
+  .cart-badge{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:999px;background:rgba(143,93,222,.18);color:#c9a8ff}
+  body.vc-readonly .acts .btn{opacity:.45;cursor:not-allowed}
   @media(prefers-reduced-motion:reduce){.board{animation:none}.tk,.kpi,.drawer{transition:none}}
 </style>
 <!-- tsc-ui -->
@@ -220,10 +230,16 @@
 <header>
   <div class="brand">SDHub · Service Desk<small>MOVIDESK × TASKS SC — TOTVS SANTA CATARINA</small></div>
   <div class="sp"></div>
+  <div class="vercomo" id="vercomoBox" style="display:none">
+    <label for="verComo">Ver como</label>
+    <select id="verComo"></select>
+  </div>
   <div class="who" id="who"></div>
   <button id="btnReload">↻ Recarregar</button>
   <button id="btnLogout">Sair</button>
 </header>
+
+<div class="vc-faixa" id="vcFaixa" style="display:none"></div>
 
 <div class="kpis" id="kpis"></div>
 
@@ -340,6 +356,8 @@
     var se=document.getElementById("fEmpresa"), su=document.getElementById("fUrg");
     Object.keys(emp).sort().forEach(function(e){ se.insertAdjacentHTML("beforeend",'<option>'+esc(e)+'</option>'); });
     Object.keys(urg).sort().forEach(function(u){ su.insertAdjacentHTML("beforeend",'<option>'+esc(u)+'</option>'); });
+    if(se.dataset.keep && emp[se.dataset.keep]) se.value=se.dataset.keep;
+    if(su.dataset.keep && urg[su.dataset.keep]) su.value=su.dataset.keep;
   }
 
   // ---------- board ----------
@@ -762,6 +780,7 @@
     if(!btn) return;
     var orig=btn.textContent;
     btn.addEventListener("click", async function(){
+      if(READONLY){ window.alert('Modo "Ver como" ligado: somente visualização. Volte para o seu usuário para gravar.'); return; }
       if(!window.confirm(confirmMsg)) return;
       btn.disabled=true; btn.textContent="Enviando…";
       try{ await run(); }catch(e){ /* run trata msg */ }
@@ -912,16 +931,71 @@
     });
   }
 
+  // ---------- acesso: gestor de demandas + "Ver como" ----------
+  var VC_KEY="sdhub_ver_como", CTX={}, READONLY=false;
+  var PERFIL_LABEL={admin:"Administrador",gestor:"Gestor de Demandas",comum:"Comum",consultoria:"Consultoria",cliente:"Cliente",leitor:"Leitor",dev:"Dev",interno:"Interno"};
+  function pl(p){ return PERFIL_LABEL[p]||p||""; }
+  function nCli(rec){ return Array.isArray(rec)?(rec.length+" cliente"+(rec.length===1?"":"s")):"todos os clientes"; }
+  function renderAcesso(u){
+    var who=document.getElementById("who");
+    var meuRec=CTX.recorte;
+    who.innerHTML=esc(CTX.nome||(u?u.email:""))+(CTX.perfil==="gestor"?'<span class="cart-badge" title="Gestor de Demandas">carteira: '+nCli(meuRec)+'</span>':"");
+    var box=document.getElementById("vercomoBox"), sel=document.getElementById("verComo");
+    if(!CTX.admin){ box.style.display="none"; }
+    else{
+      box.style.display="";
+      var alvo=CTX.ver_como, grupos={};
+      (CTX.opcoes||[]).forEach(function(o){ (grupos[o.perfil]=grupos[o.perfil]||[]).push(o); });
+      var ordem=["gestor","comum","consultoria","cliente","leitor","dev","admin"];
+      Object.keys(grupos).forEach(function(k){ if(ordem.indexOf(k)<0) ordem.push(k); });
+      sel.innerHTML='<option value="">Eu ('+esc(CTX.nome||"")+')</option>'+ordem.filter(function(k){return grupos[k];}).map(function(k){
+        return '<optgroup label="'+esc(pl(k))+'">'+grupos[k].map(function(o){ return '<option value="'+esc(o.email)+'">'+esc(o.nome)+'</option>'; }).join("")+'</optgroup>';
+      }).join("");
+      sel.value=alvo?alvo.email:"";
+      sel.classList.toggle("on",!!alvo);
+    }
+    var fx=document.getElementById("vcFaixa"), a=CTX.ver_como;
+    if(!a){ fx.style.display="none"; fx.innerHTML=""; return; }
+    fx.style.display="";
+    fx.innerHTML='<b>👁 Vendo como '+esc(a.nome)+'</b><span class="pf">'+esc(pl(a.perfil))+'</span>'+
+      '<span class="sub">'+(a.perfil==="gestor"?nCli(a.recorte)+" na carteira":"sem recorte de carteira (vê tudo)")+' · somente visualização (gravações bloqueadas)</span>'+
+      '<button type="button" id="vcSair">Voltar para mim</button>';
+    document.getElementById("vcSair").addEventListener("click",function(){ trocarVerComo(""); });
+  }
+  function trocarVerComo(email){
+    try{ if(email) localStorage.setItem(VC_KEY,email); else localStorage.removeItem(VC_KEY); }catch(e){}
+    closeDrawer(); load();
+  }
+  function resetSelects(){
+    var se=document.getElementById("fEmpresa"), su=document.getElementById("fUrg");
+    var ve=se.value, vu=su.value;
+    se.innerHTML='<option value="">Todas as empresas</option>'; su.innerHTML='<option value="">Toda urgência</option>';
+    se.dataset.keep=ve; su.dataset.keep=vu;
+  }
+
   // ---------- carregamento ----------
   async function load(){
     document.getElementById("board").innerHTML='<div class="center-load">Carregando tickets…</div>';
     try{
       await window.TSC.requireSession();
       var u=await window.TSC.currentUser();
-      document.getElementById("who").textContent=u?u.email:"";
+      var vc=""; try{ vc=localStorage.getItem(VC_KEY)||""; }catch(e){}
+      var ctx={}; try{ ctx=await window.TSC.contexto(vc); }catch(e){ ctx={}; }
+      CTX=ctx;
       TICKETS=await window.TSC.getMovidesk();
       TICKETS=TICKETS.filter(Boolean);
-      fillSelects(); renderKpis(); render();
+      // "Ver como" (so admin): aplica na tela o recorte do usuario escolhido.
+      // O admin ja tem acesso a tudo; quem nao e admin nunca recebe ver_como.
+      var alvo=ctx.ver_como||null;
+      if(vc && !alvo){ try{ localStorage.removeItem(VC_KEY); }catch(e){} }
+      READONLY=!!alvo;
+      document.body.classList.toggle("vc-readonly",READONLY);
+      if(alvo && Array.isArray(alvo.recorte)){
+        var set={}; alvo.recorte.forEach(function(c){ set[c]=1; });
+        TICKETS=TICKETS.filter(function(t){ return t._customer && set[t._customer]; });
+      }
+      renderAcesso(u);
+      resetSelects(); fillSelects(); renderKpis(); render();
     }catch(e){
       document.getElementById("board").innerHTML='<div class="center-load">Falha ao carregar: '+esc(e&&e.message?e.message:e)+'</div>';
     }
@@ -935,7 +1009,8 @@
   document.getElementById("dx").addEventListener("click",closeDrawer);
   document.getElementById("ov").addEventListener("click",closeDrawer);
   document.getElementById("btnReload").addEventListener("click",load);
-  document.getElementById("btnLogout").addEventListener("click",async function(){ await window.TSC.logout(); location.reload(); });
+  document.getElementById("verComo").addEventListener("change",function(e){ trocarVerComo(e.target.value); });
+  document.getElementById("btnLogout").addEventListener("click",async function(){ try{ localStorage.removeItem(VC_KEY); }catch(e){} await window.TSC.logout(); location.reload(); });
   document.addEventListener("keydown",function(e){ if(e.key==="Escape") closeDrawer(); });
 
   load();

@@ -139,6 +139,18 @@ resto do painel (RLS + Edge Functions) segue usando o JWT do Supabase, sem mudan
 Contas que só existem no Supabase Auth (sem senha local no Cockpit) caem no **fallback**
 `signInWithPassword`. Trocar a senha no Cockpit passa a valer também no SDHub.
 
+### 3.2. Gestor de Demandas e "Ver como" (14/11/2026)
+
+- A sessão Supabase é ligada ao login do Cockpit pelo e-mail (`totvs.cockpit_email()`).
+- `totvs.sd_recorte_de(email)`: `null` = todos os clientes; para perfil `gestor`, o
+  array de clientes da `cockpit.carteira_demandas` (vazio = não vê nada).
+- RLS de `totvs.movidesk_tickets` (`movidesk_select`/`movidesk_write`): interno vê
+  tudo, **exceto o gestor**, que só vê a carteira; cliente segue pelo `customer_code`.
+- `totvs.sd_contexto(p_ver_como)` (RPC): devolve nome, perfil, admin, recorte e, só
+  para admin, a lista de usuários do combo **Ver como** e o recorte do escolhido.
+  No modo Ver como a tela filtra pelo recorte do alvo e bloqueia as ações.
+- SQL versionado em `sql/0001_recorte_gestor_ver_como.sql`.
+
 ## 4. Edge Functions (Supabase)
 
 | Função | O que faz | Segredos |
